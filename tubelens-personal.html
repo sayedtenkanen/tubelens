@@ -512,6 +512,7 @@ async function generateReport() {
 
   try {
     let responseText = '';
+    let warningHtml = '';
     const { systemPrompt } = buildPromptPayload();
 
     if (provider === 'local') {
@@ -530,7 +531,7 @@ async function generateReport() {
       if (data.error) throw new Error(data.error);
       responseText = data.report;
       if (data.warning) {
-        document.getElementById('reportOutput').innerHTML = `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm mb-4">${data.warning}</div>`;
+        warningHtml = `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm mb-4">${data.warning}</div>`;
       }
       if (data.saved_to) {
         responseText += `\n\n---\n*Saved to ${data.saved_to}*`;
@@ -555,7 +556,7 @@ async function generateReport() {
       responseText = data.choices[0].message.content;
     }
 
-    document.getElementById('reportOutput').innerHTML = marked.parse(responseText);
+    document.getElementById('reportOutput').innerHTML = warningHtml + marked.parse(responseText);
   } catch (err) {
     console.error(err);
     document.getElementById('reportOutput').innerHTML = `

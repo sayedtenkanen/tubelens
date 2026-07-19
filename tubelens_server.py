@@ -153,7 +153,10 @@ def fetch_video(url: str, yt_api_key: str = None, refresh: bool = False):
         cache_file = CACHE_DIR / f"{vid}.json"
         if cache_file.exists():
             try:
-                return json.loads(cache_file.read_text(encoding="utf-8"))
+                cached = json.loads(cache_file.read_text(encoding="utf-8"))
+                # Don't serve a comment-less cached entry when a key is now provided
+                if not (yt_api_key and not cached.get("comments")):
+                    return cached
             except Exception:
                 pass
 
@@ -247,7 +250,8 @@ def cli_mode(url: str, yt_api_key: str | None):
     vid = extract_video_id(url)
     meta = get_basic_meta(vid)
     if yt_api_key:
-        meta.update(get_api_meta(vid, yt_api_key))
+        api_meta, _ = get_api_meta(vid, yt_api_key)
+        meta.update(api_meta)
 
     transcript, _ = fetch_transcript(vid)
 
