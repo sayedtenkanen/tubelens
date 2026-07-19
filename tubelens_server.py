@@ -313,6 +313,7 @@ def generate(payload: dict = Body(...)):
         prompt_tokens = usage.get("prompt_tokens", 0)
         completion_tokens = usage.get("completion_tokens", 0)
         stats = {
+            "num_ctx": num_ctx,
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "duration_s": round(duration, 1),

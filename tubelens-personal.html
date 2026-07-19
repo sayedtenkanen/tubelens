@@ -92,7 +92,7 @@
           <p class="text-[11px] text-gray-500 mt-1 ml-5">
             Runs <code class="bg-gray-100 px-1 rounded">python tubelens_server.py</code> on your machine to auto-pull data.
           </p>
-          <div id="localServerConfig" class="hidden mt-3">
+          <div id="localServerConfig" class="mt-3">
             <label class="block text-[11px] font-semibold text-gray-700 mb-1">YouTube Data API Key (optional)</label>
             <input type="password" id="ytApiKey" placeholder="AIza..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
  <p class="text-[10px] text-gray-500 mt-1">Required for auto comments & full description. Transcripts work without it.</p>
@@ -224,14 +224,18 @@
 let currentPrompt = '';
 let currentTab = 'report';
 
-document.getElementById('useApi').addEventListener('change', (e) => {
+function syncApiFieldsState() {
+  const on = document.getElementById('useApi').checked;
   const el = document.getElementById('apiFields');
-  el.classList.toggle('opacity-50', !e.target.checked);
-  el.classList.toggle('pointer-events-none', !e.target.checked);
-});
+  el.classList.toggle('opacity-50', !on);
+  el.classList.toggle('pointer-events-none', !on);
+}
+document.getElementById('useApi').addEventListener('change', syncApiFieldsState);
+// Sync once on load: browsers restore checkbox state on reload without
+// firing 'change', which otherwise leaves the fields visually disabled.
+syncApiFieldsState();
 
 document.getElementById('useLocalServer').addEventListener('change', (e) => {
-  document.getElementById('localServerConfig').classList.toggle('hidden', !e.target.checked);
   const status = document.getElementById('fetchStatus');
   if (e.target.checked) {
  status.textContent = 'Ready to call localhost:8000';
@@ -278,6 +282,26 @@ function extractVideoId(url) {
 }
 
 // ── Fetch Logic ──────────────────────────────────────────────────
+let lastFetchedVid = null;
+
+function resetFieldsIfNewVideo(url) {
+  // Clear stale data from the previous video so empty fields on the new
+  // one don't silently keep old content. Same-video refetches keep
+  // manually pasted data intact.
+  const vid = extractVideoId(url);
+  if (vid && vid !== lastFetchedVid) {
+    document.getElementById('videoTitle').value = '';
+    document.getElementById('description').value = '';
+    document.getElementById('transcript').value = '';
+    document.getElementById('comments').value = '';
+    document.getElementById('chapterCount').textContent = '';
+    window._chapters = [];
+    updateStats('transcript');
+    updateStats('comments');
+    lastFetchedVid = vid;
+  }
+}
+
 async function fetchMetadata() {
   const useLocal = document.getElementById('useLocalServer').checked;
   if (useLocal) return fetchFromLocalServer();
@@ -288,6 +312,7 @@ async function fetchNoEmbed() {
   const url = document.getElementById('videoUrl').value.trim();
   const status = document.getElementById('fetchStatus');
   if (!url) return;
+  resetFieldsIfNewVideo(url);
   status.textContent = 'Fetching metadata...';
   status.className = 'text-[11px] text-gray-500 mt-1 h-4';
   try {
@@ -311,6 +336,7 @@ async function fetchFromLocalServer() {
   const url = document.getElementById('videoUrl').value.trim();
   const status = document.getElementById('fetchStatus');
   if (!url) return;
+  resetFieldsIfNewVideo(url);
   status.textContent = 'Contacting localhost:8000...';
   status.className = 'text-[11px] text-indigo-600 mt-1 h-4';
  try {
@@ -397,37 +423,7 @@ function normalizeTranscript(text) {
 }
 
 // ── Prompt Builder ──────────────────────────────────────────────
-function buildPromptPayload() {
-  const title = document.getElementById('videoTitle').value.trim() || 'Untitled Video';
-  const desc = document.getElementById('description').value.trim();
-  const rawTrans = document.getElementById('transcript').value.trim();
-  const rawComments = document.getElementById('comments').value.trim();
-  const doFilter = document.getElementById('filterComments').checked;
-  
-  const chapters = (window._chapters && window._chapters.length) ? window._chapters : parseTimestamps();
-  const transcript = normalizeTranscript(rawTrans);
-  const comments = doFilter ? cleanComments(rawComments) : rawComments;
-
-  const systemPrompt = `You are TubeLens, an expert video analyst and technical editor. You produce structured, information-dense reports from YouTube video data. You synthesize transcripts, descriptions, timestamps, and community comments into a single coherent brief. You never hallucinate facts not present in the source material. You reference timestamps in HH:MM:SS format when citing specific claims.`;
-
-  const userPrompt = `Analyze the following YouTube video data and produce a structured report in Markdown.
-
-## VIDEO METADATA
-**Title:** ${title}
-**Description:** ${desc || '(None provided)'}
-
-${chapters.length ? `## VIDEO CHAPTERS / TIMESTAMPS
-${chapters.map(c => `- [${c.time}] ${c.title}`).join('\n')}` : ''}
-
-## TRANSCRIPT
-${transcript || '(No transcript provided)'}
-
-## COMMUNITY COMMENTS
-${comments || '(No comments provided)'}
-
----
-
-## INSTRUCTIONS
+const REPORT_INSTRUCTIONS = `## INSTRUCTIONS
 Generate a report with the following sections. Use clear Markdown formatting.
 
 ### 1. Quick Brief
@@ -459,7 +455,44 @@ IMPORTANT RULES:
 - If the transcript quality is poor (many [music], [applause], or fragmented sentences), note this briefly but still extract meaning.
 - If comments are sparse, omit the Community sections gracefully rather than inventing them.`;
 
-  return { systemPrompt, userPrompt, fullText: systemPrompt + '\n\n' + userPrompt };
+function buildPromptPayload() {
+  const title = document.getElementById('videoTitle').value.trim() || 'Untitled Video';
+  const desc = document.getElementById('description').value.trim();
+  const rawTrans = document.getElementById('transcript').value.trim();
+  const rawComments = document.getElementById('comments').value.trim();
+  const doFilter = document.getElementById('filterComments').checked;
+  
+  const chapters = (window._chapters && window._chapters.length) ? window._chapters : parseTimestamps();
+  const transcript = normalizeTranscript(rawTrans);
+  const comments = doFilter ? cleanComments(rawComments) : rawComments;
+
+  const systemPrompt = `You are TubeLens, an expert video analyst and technical editor. You produce structured, information-dense reports from YouTube video data. You synthesize transcripts, descriptions, timestamps, and community comments into a single coherent brief. You never hallucinate facts not present in the source material. You reference timestamps in HH:MM:SS format when citing specific claims.`;
+
+  const userPrompt = `Analyze the following YouTube video data and produce a structured report in Markdown.
+
+## VIDEO METADATA
+**Title:** ${title}
+**Description:** ${desc || '(None provided)'}
+
+${chapters.length ? `## VIDEO CHAPTERS / TIMESTAMPS
+${chapters.map(c => `- [${c.time}] ${c.title}`).join('\n')}` : ''}
+
+## TRANSCRIPT
+${transcript || '(No transcript provided)'}
+
+## COMMUNITY COMMENTS
+${comments || '(No comments provided)'}
+
+---
+
+${REPORT_INSTRUCTIONS}`;
+
+  return {
+    systemPrompt,
+    userPrompt,
+    fullText: systemPrompt + '\n\n' + userPrompt,
+    parts: { title, desc, chapters, transcript, comments },
+  };
 }
 
 function buildPrompt() {
@@ -480,16 +513,99 @@ function copyPrompt() {
   });
 }
 
+// ── Local generation helpers (Ollama via server) ────────────────
+const NUM_CTX_CAP = 65536;        // hard cap to protect VRAM
+const OUTPUT_HEADROOM = 8192;     // tokens reserved for the model's output
+const MAP_CHUNK_TOKENS = 20000;   // transcript tokens per map-stage call
+
+async function callGenerate(system, prompt, model, videoId = null) {
+  // Auto-size the context window: estimated prompt tokens + output
+  // headroom, rounded up to 8k steps. Min 32k; capped to protect VRAM.
+  const approx = Math.round((system.length + prompt.length) / 4);
+  const numCtx = Math.min(NUM_CTX_CAP,
+    Math.max(32768, Math.ceil((approx + OUTPUT_HEADROOM + 1024) / 8192) * 8192));
+  const res = await fetch('http://localhost:8000/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ system, prompt, model, num_ctx: numCtx, video_id: videoId })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+function chunkText(text, maxTokens) {
+  // Split on the nearest space before the limit so words stay intact;
+  // inline [M:SS] timestamps are preserved inside each chunk.
+  const maxChars = maxTokens * 4;
+  const chunks = [];
+  let i = 0;
+  while (i < text.length) {
+    let end = Math.min(i + maxChars, text.length);
+    if (end < text.length) {
+      const sp = text.lastIndexOf(' ', end);
+      if (sp > i) end = sp;
+    }
+    chunks.push(text.slice(i, end));
+    i = end;
+  }
+  return chunks;
+}
+
+async function generateChunked(model, videoId, parts, systemPrompt, setStatus) {
+  // Map stage: dense notes per transcript part.
+  const chunks = chunkText(parts.transcript, MAP_CHUNK_TOKENS);
+  const notes = [];
+  for (let i = 0; i < chunks.length; i++) {
+    setStatus(`Long video: summarizing part ${i + 1} of ${chunks.length}…`);
+    const mapPrompt = `You are processing PART ${i + 1} of ${chunks.length} of the transcript of the video "${parts.title}". Produce dense, factual notes on THIS PART ONLY, in chronological order, citing the inline timestamps. Include: key points and claims (with specific numbers), instructions or steps, and every tool, person, paper, product, or link mentioned. Use Markdown bullets. No introduction, no conclusion, no speculation beyond the text.
+
+## TRANSCRIPT PART ${i + 1}/${chunks.length}
+${chunks[i]}`;
+    const d = await callGenerate(systemPrompt, mapPrompt, model);
+    notes.push(`### Notes from part ${i + 1}/${chunks.length}\n${d.report}`);
+  }
+
+  // Reduce stage: combine notes + chapters + comments into the final report.
+  setStatus(`Combining ${chunks.length} parts into the final report…`);
+  const reducePrompt = `Analyze the following YouTube video data and produce a structured report in Markdown.
+
+## VIDEO METADATA
+**Title:** ${parts.title}
+**Description:** ${parts.desc || '(None provided)'}
+
+${parts.chapters.length ? `## VIDEO CHAPTERS / TIMESTAMPS
+${parts.chapters.map(c => `- [${c.time}] ${c.title}`).join('\n')}
+
+` : ''}## TRANSCRIPT NOTES
+The transcript was too long to include directly. Below are detailed chronological notes extracted from ${chunks.length} consecutive parts of it. Treat them as the transcript evidence; timestamps in the notes refer to the video.
+
+${notes.join('\n\n')}
+
+## COMMUNITY COMMENTS
+${parts.comments || '(No comments provided)'}
+
+---
+
+${REPORT_INSTRUCTIONS}`;
+  const data = await callGenerate(systemPrompt, reducePrompt, model, videoId);
+  data.parts_processed = chunks.length;
+  return data;
+}
+
 // ── AI Report Generation ────────────────────────────────────────
 async function generateReport() {
   const useApi = document.getElementById('useApi').checked;
+  const provider = document.getElementById('provider').value;
   if (!currentPrompt) buildPrompt();
   switchTab('report');
   document.getElementById('emptyState').classList.add('hidden');
   document.getElementById('reportOutput').classList.remove('hidden');
   document.getElementById('reportOutput').innerHTML = `<div class="flex items-center gap-3 text-gray-500"><div class="loader"></div><span>Building report...</span></div>`;
 
-  if (!useApi) {
+  // The Local provider goes through tubelens_server.py, not directly to an
+  // AI API, so it isn't gated behind the "Call AI API directly" checkbox.
+  if (!useApi && provider !== 'local') {
     document.getElementById('reportOutput').innerHTML = `
       <div class="bg-indigo-50 border border-indigo-200 p-5 rounded-xl">
         <h3 class="text-indigo-900 font-semibold mb-2">Prompt Ready</h3>
@@ -500,7 +616,6 @@ async function generateReport() {
   }
 
   const apiKey = document.getElementById('apiKey').value.trim();
-  const provider = document.getElementById('provider').value;
   const model = document.getElementById('model').value.trim();
   if (!apiKey && provider !== 'local') {
     document.getElementById('reportOutput').innerHTML = `<div class="text-red-600 bg-red-50 border border-red-200 p-4 rounded-lg text-sm">Please enter an AI API key or disable "Call API directly".</div>`;
@@ -513,31 +628,37 @@ async function generateReport() {
   try {
     let responseText = '';
     let warningHtml = '';
-    const { systemPrompt } = buildPromptPayload();
+    const payload = buildPromptPayload();
+    const systemPrompt = payload.systemPrompt;
 
     if (provider === 'local') {
       const videoId = extractVideoId(document.getElementById('videoUrl').value);
-      const res = await fetch('http://localhost:8000/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system: systemPrompt,
-          prompt: currentPrompt,
-          model,
-          video_id: videoId
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      const setStatus = (msg) => {
+        document.getElementById('reportOutput').innerHTML =
+          `<div class="flex items-center gap-3 text-gray-500"><div class="loader"></div><span>${msg}</span></div>`;
+      };
+      // If the assembled prompt can't fit even the capped context window
+      // (prompt + output headroom), fall back to map-reduce chunking.
+      const approxTokens = Math.round(payload.fullText.length / 4);
+      const singleShotLimit = (NUM_CTX_CAP - OUTPUT_HEADROOM - 1024);
+      let data;
+      if (approxTokens > singleShotLimit && payload.parts.transcript) {
+        data = await generateChunked(model, videoId, payload.parts, systemPrompt, setStatus);
+      } else {
+        data = await callGenerate(systemPrompt, currentPrompt, model, videoId);
+      }
       responseText = data.report;
       if (data.warning) {
         warningHtml = `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm mb-4">${data.warning}</div>`;
       }
       if (data.stats) {
-        responseText += `\n\n---\n*Generated in ${data.stats.duration_s}s — ${data.stats.prompt_tokens} prompt + ${data.stats.completion_tokens} output tokens (${data.stats.tokens_per_s} tok/s)*`;
+        const partsNote = data.parts_processed ? `, map-reduce over ${data.parts_processed} parts` : '';
+        responseText += `\n\n---\n*Generated in ${data.stats.duration_s}s — ${data.stats.prompt_tokens} prompt + ${data.stats.completion_tokens} output tokens (${data.stats.tokens_per_s} tok/s, num_ctx ${data.stats.num_ctx}${partsNote})*`;
+      } else if (data.parts_processed) {
+        responseText += `\n\n---\n*Map-reduce over ${data.parts_processed} transcript parts*`;
       }
       if (data.saved_to) {
-        responseText += `${data.stats ? '' : '\n\n---'}\n*Saved to ${data.saved_to}*`;
+        responseText += `${(data.stats || data.parts_processed) ? '' : '\n\n---'}\n*Saved to ${data.saved_to}*`;
       }
     } else if (provider === 'openai' || provider === 'openrouter') {
       const endpoint = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
