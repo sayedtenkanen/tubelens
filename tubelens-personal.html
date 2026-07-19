@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TubeLens — Personal Video Summarizer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  body { font-family: 'Inter', sans-serif; }
+  .timestamp-badge {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .loader {
+    border: 3px solid #e5e7eb;
+    border-top: 3px solid #4f46e5;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  textarea { min-height: 120px; }
+  .markdown-body h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; color: #111827; }
+  .markdown-body h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25rem; }
+  .markdown-body h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.4rem; color: #374151; }
+  .markdown-body ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+  .markdown-body li { margin-bottom: 0.35rem; }
+  .markdown-body blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #4b5563; font-style: italic; background: #eef2ff; border-radius: 0 0.375rem 0.375rem 0; padding: 0.5rem 1rem; margin: 0.75rem 0; }
+  .markdown-body code { background: #f3f4f6; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.9em; }
+  .markdown-body pre { background: #1f2937; color: #f9fafb; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.75rem 0; }
+  .markdown-body a { color: #4f46e5; text-decoration: underline; }
+  .markdown-body hr { margin: 1.5rem 0; border: 0; border-top: 1px solid #e5e7eb; }
+  .markdown-body p { margin-bottom: 0.75rem; line-height: 1.6; }
+</style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+<div id="app" class="max-w-7xl mx-auto p-4 md:p-8">
+  <!-- Header -->
+  <div class="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900 tracking-tight">TubeLens</h1>
+      <p class="text-gray-500 text-sm mt-1">Personal YouTube deep-summarizer. Runs entirely in your browser.</p>
+    </div>
+    <div class="flex items-center gap-3 text-xs text-gray-500 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Data stays local</span>
+      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> Auto-fetch ready</span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- LEFT COLUMN: Inputs -->
+    <div class="lg:col-span-5 space-y-5">
+      
+      <!-- API Config -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">AI API Setup</h2>
+          <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+            <input type="checkbox" id="useApi" class="rounded text-indigo-600 focus:ring-indigo-500">
+            <span>Call AI API directly</span>
+          </label>
+        </div>
+        <div id="apiFields" class="space-y-3 opacity-50 pointer-events-none transition-opacity">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">AI Provider</label>
+            <select id="provider" class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white">
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="openrouter">OpenRouter</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">AI API Key</label>
+            <input type="password" id="apiKey" placeholder="sk-..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+ <p class="text-[11px] text-gray-400 mt-1">Key is only stored in page memory. Never persisted.</p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Model</label>
+            <input type="text" id="model" value="gpt-4o-mini" class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+          </div>
+        </div>
+
+ <div class="mt-4 pt-4 border-t border-gray-200">
+          <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer font-medium">
+            <input type="checkbox" id="useLocalServer" class="rounded text-indigo-600 focus:ring-indigo-500">
+            <span>Use local server for transcript & comments</span>
+          </label>
+          <p class="text-[11px] text-gray-500 mt-1 ml-5">
+            Runs <code class="bg-gray-100 px-1 rounded">python tubelens_server.py</code> on your machine to auto-pull data.
+          </p>
+          <div id="localServerConfig" class="hidden mt-3">
+            <label class="block text-[11px] font-semibold text-gray-700 mb-1">YouTube Data API Key (optional)</label>
+            <input type="password" id="ytApiKey" placeholder="AIza..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+ <p class="text-[10px] text-gray-500 mt-1">Required for auto comments & full description. Transcripts work without it.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video Source -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Video Source</h2>
+        
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">YouTube URL</label>
+            <div class="flex gap-2">
+              <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." class="flex-1 rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+              <button onclick="fetchMetadata()" class="bg-gray-900 hover:bg-gray-800 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap">Fetch Info</button>
+            </div>
+            <p id="fetchStatus" class="text-[11px] text-gray-400 mt-1 h-4"></p>
+          </div>
+          
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Title</label>
+            <input type="text" id="videoTitle" class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-medium text-gray-700">Description</label>
+              <button onclick="parseTimestamps()" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium">Parse Chapters</button>
+            </div>
+            <textarea id="description" placeholder="Paste the video description (with timestamps)..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono text-xs leading-relaxed"></textarea>
+            <p id="chapterCount" class="text-[11px] text-indigo-600 mt-1 h-4"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transcript -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Transcript</h2>
+          <span id="transcriptStats" class="text-[11px] text-gray-400">0 chars</span>
+        </div>
+        <textarea id="transcript" oninput="updateStats('transcript')" placeholder="Paste transcript here, or use the local server to auto-fetch..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono text-xs leading-relaxed"></textarea>
+        <p class="text-[11px] text-gray-400 mt-1">Supports raw text, .srt, or .vtt. Auto-fetched transcripts arrive pre-formatted.</p>
+      </div>
+
+      <!-- Comments -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Comments</h2>
+          <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+            <input type="checkbox" id="filterComments" checked class="rounded text-indigo-600 focus:ring-indigo-500">
+            <span>Smart Filter</span>
+          </label>
+        </div>
+        <textarea id="comments" oninput="updateStats('comments')" placeholder="Paste top comments, or auto-fetch via local server..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono text-xs leading-relaxed"></textarea>
+        <p id="commentStats" class="text-[11px] text-gray-400 mt-1">0 chars</p>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col gap-2">
+        <button onclick="buildPrompt()" class="w-full bg-white border-2 border-indigo-600 text-indigo-700 hover:bg-indigo-50 font-semibold py-3 px-4 rounded-xl transition-all text-sm">
+ 📋 Assemble Prompt        </button>
+        <button onclick="generateReport()" id="generateBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition-all text-sm flex items-center justify-center gap-2">
+          <span id="btnText">✨ Generate Report</span>
+          <div id="btnLoader" class="loader hidden"></div>
+        </button>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Output -->
+    <div class="lg:col-span-7 space-y-5">
+      
+      <!-- Tabs -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="flex border-b border-gray-200">
+          <button onclick="switchTab('prompt')" id="tab-prompt" class="flex-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 transition-colors">
+            Prompt Preview
+          </button>
+          <button onclick="switchTab('report')" id="tab-report" class="flex-1 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50">
+            Final Report
+          </button>
+        </div>
+
+        <!-- Prompt Pane -->
+        <div id="pane-prompt" class="hidden p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-semibold text-gray-500 uppercase">Raw Prompt (<span id="promptTokens">~0</span> tokens)</h3>
+            <button onclick="copyPrompt()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-md transition-colors">
+              Copy to Clipboard
+            </button>
+          </div>
+          <pre id="promptOutput" class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs font-mono leading-relaxed text-gray-700 overflow-auto max-h-[600px] whitespace-pre-wrap"></pre>
+        </div>
+
+        <!-- Report Pane -->
+        <div id="pane-report" class="p-5 md:p-8 min-h-[400px]">
+          <div id="emptyState" class="flex flex-col items-center justify-center h-64 text-center">
+            <div class="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4 text-2xl">📝</div>
+            <p class="text-gray-900 font-medium">No report generated yet</p>
+            <p class="text-sm text-gray-500 mt-1 max-w-xs">Fill in the video data and click "Generate Report" or "Assemble Prompt" to see results here.</p>
+          </div>
+          <div id="reportOutput" class="markdown-body hidden"></div>
+        </div>
+      </div>
+
+      <!-- How-to Helper -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">How to use this tool</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-600">
+          <div class="space-y-2">
+            <p><span class="font-semibold text-gray-900">1.</span> <strong>Local server mode:</strong> Run <code class="bg-gray-100 px-1 rounded">pip install fastapi uvicorn youtube-transcript-api requests</code> then <code class="bg-gray-100 px-1 rounded">python tubelens_server.py</code>.</p>
+            <p><span class="font-semibold text-gray-900">2.</span> Paste a YouTube URL, enable "Use local server", click <strong>Fetch Info</strong>. Transcripts and comments populate automatically.</p>
+          </div>
+          <div class="space-y-2">
+            <p><span class="font-semibold text-gray-900">3.</span> <strong>No server?</strong> Use the browser noEmbed fetch for title only, then paste transcript/comments manually from YouTube.</p>
+            <p><span class="font-semibold text-gray-900">4.</span> Click <strong>Assemble Prompt</strong> to copy into any LLM, or enter an AI API key and click <strong>Generate Report</strong> instantly.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State & Init ───────────────────────────────────────────────
+let currentPrompt = '';
+let currentTab = 'report';
+
+document.getElementById('useApi').addEventListener('change', (e) => {
+  const el = document.getElementById('apiFields');
+  el.classList.toggle('opacity-50', !e.target.checked);
+  el.classList.toggle('pointer-events-none', !e.target.checked);
+});
+
+document.getElementById('useLocalServer').addEventListener('change', (e) => {
+  document.getElementById('localServerConfig').classList.toggle('hidden', !e.target.checked);
+  const status = document.getElementById('fetchStatus');
+  if (e.target.checked) {
+ status.textContent = 'Ready to call localhost:8000';
+    status.className = 'text-[11px] text-indigo-600 mt-1 h-4';
+  } else {
+    status.textContent = '';
+    status.className = 'text-[11px] text-gray-400 mt-1 h-4';
+  }
+});
+
+document.getElementById('provider').addEventListener('change', (e) => {
+  const map = { openai: 'gpt-4o-mini', anthropic: 'claude-3-5-sonnet-20241022', openrouter: 'openai/gpt-4o-mini' };
+  document.getElementById('model').value = map[e.target.value];
+});
+
+function switchTab(tab) {
+  currentTab = tab;
+  const active = 'flex-1 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50';
+  const inactive = 'flex-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 transition-colors';
+  document.getElementById('tab-prompt').className = tab === 'prompt' ? active : inactive;
+  document.getElementById('tab-report').className = tab === 'report' ? active : inactive;
+  document.getElementById('pane-prompt').classList.toggle('hidden', tab !== 'prompt');
+  document.getElementById('pane-report').classList.toggle('hidden', tab !== 'report');
+}
+
+function updateStats(id) {
+  const val = document.getElementById(id).value;
+  const suffix = id === 'transcript' ? 'transcriptStats' : 'commentStats';
+  document.getElementById(suffix).textContent = `${val.length} chars · ~${Math.round(val.length / 4)} tokens`;
+}
+
+// ── Fetch Logic ──────────────────────────────────────────────────
+async function fetchMetadata() {
+  const useLocal = document.getElementById('useLocalServer').checked;
+  if (useLocal) return fetchFromLocalServer();
+  else return fetchNoEmbed();
+}
+
+async function fetchNoEmbed() {
+  const url = document.getElementById('videoUrl').value.trim();
+  const status = document.getElementById('fetchStatus');
+  if (!url) return;
+  status.textContent = 'Fetching metadata...';
+  status.className = 'text-[11px] text-gray-500 mt-1 h-4';
+  try {
+    const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}&format=json`);
+    const data = await res.json();
+    if (data.title) {
+      document.getElementById('videoTitle').value = data.title;
+      if (data.author_name) {
+        document.getElementById('description').value = `Channel: ${data.author_name}\n\n`;
+      }
+      status.textContent = `✓ Fetched from noEmbed`;
+      status.className = 'text-[11px] text-green-600 mt-1 h-4';
+    } else throw new Error('No data');
+  } catch (e) {
+    status.textContent = '✗ Could not fetch. Paste manually.';
+    status.className = 'text-[11px] text-red-500 mt-1 h-4';
+  }
+}
+
+async function fetchFromLocalServer() {
+  const url = document.getElementById('videoUrl').value.trim();
+  const status = document.getElementById('fetchStatus');
+  if (!url) return;
+  status.textContent = 'Contacting localhost:8000...';
+  status.className = 'text-[11px] text-indigo-600 mt-1 h-4';
+ try {
+    const ytKey = document.getElementById('ytApiKey').value.trim();
+    const params = new URLSearchParams({ url });
+    if (ytKey) params.set('yt_api_key', ytKey);
+    const res = await fetch(`http://localhost:8000/fetch?${params.toString()}`, { method: 'GET' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    if (data.title) document.getElementById('videoTitle').value = data.title;
+    if (data.description) document.getElementById('description').value = data.description;
+    if (data.transcript) {
+      document.getElementById('transcript').value = data.transcript;
+      updateStats('transcript');
+    }
+    if (data.comments && data.comments.length) {
+      document.getElementById('comments').value = data.comments.join('\n---\n');
+      updateStats('comments');
+    }
+    parseTimestamps();
+    status.textContent = `✓ Server OK — ${data.transcript ? 'transcript' : 'no transcript'}, ${data.comments?.length || 0} comments`;
+    status.className = 'text-[11px] text-green-600 mt-1 h-4';
+  } catch (e) {
+    status.textContent = '✗ Local server unreachable. Is "python tubelens_server.py" running?';
+    status.className = 'text-[11px] text-red-500 mt-1 h-4';
+  }
+}
+
+// ── Parsing & Cleaning ──────────────────────────────────────────
+function parseTimestamps() {
+  const desc = document.getElementById('description').value;
+  const regex = /^(?:\s*)(\d{1,2}:\d{2}(?::\d{2})?)\s*[—–\-–]\s*(.+)$/gm;
+  const matches = [...desc.matchAll(regex)];
+  if (matches.length > 0) {
+    const chapters = matches.map(m => ({ time: m[1], title: m[2].trim() }));
+    document.getElementById('chapterCount').textContent = `✓ Parsed ${chapters.length} chapters`;
+    window._chapters = chapters;
+    return chapters;
+  } else {
+    document.getElementById('chapterCount').textContent = 'No chapter timestamps detected.';
+    window._chapters = [];
+    return [];
+  }
+}
+
+function cleanComments(raw) {
+  const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const spamPatterns = [
+ /^\d+:\d+$/i,
+    /^(first|second|early|who'?s watching|subscribe|check out my|follow me|love from|greetings from)/i,
+    /^[👍🔥❤️👏🙏😂🤣💯✅🤔😍😭🥰🎉👌😎]+$/,
+    /^\(.*\)$/,
+    /^https?:\/\/.+$/i  ];
+  return lines.filter(line => {
+    if (line.length < 4) return false;
+    if (spamPatterns.some(p => p.test(line))) return false;
+    const wordCount = (line.match(/\b[a-zA-Z]{2,}\b/g) || []).length;
+    if (wordCount < 2 && !line.match(/\d{1,2}:\d{2}/)) return false;
+    return true;
+  }).join('\n');
+}
+
+function normalizeTranscript(text) {
+  const lines = text.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (/^\d+$/.test(line)) continue;
+    if (/^\d{1,2}:\d{2}:\d{2}[,.]\d{3}\s*-->/.test(line)) continue;
+    if (/^\d{1,2}:\d{2}(?::\d{2})?$/.test(line)) continue;
+    if (line) out.push(line);
+  }
+  return out.join(' ');
+}
+
+// ── Prompt Builder ──────────────────────────────────────────────
+function buildPromptPayload() {
+  const title = document.getElementById('videoTitle').value.trim() || 'Untitled Video';
+  const desc = document.getElementById('description').value.trim();
+  const rawTrans = document.getElementById('transcript').value.trim();
+  const rawComments = document.getElementById('comments').value.trim();
+  const doFilter = document.getElementById('filterComments').checked;
+  
+  const chapters = (window._chapters && window._chapters.length) ? window._chapters : parseTimestamps();
+  const transcript = normalizeTranscript(rawTrans);
+  const comments = doFilter ? cleanComments(rawComments) : rawComments;
+
+  const systemPrompt = `You are TubeLens, an expert video analyst and technical editor. You produce structured, information-dense reports from YouTube video data. You synthesize transcripts, descriptions, timestamps, and community comments into a single coherent brief. You never hallucinate facts not present in the source material. You reference timestamps in HH:MM:SS format when citing specific claims.`;
+
+  const userPrompt = `Analyze the following YouTube video data and produce a structured report in Markdown.
+
+## VIDEO METADATA
+**Title:** ${title}
+**Description:** ${desc || '(None provided)'}
+
+${chapters.length ? `## VIDEO CHAPTERS / TIMESTAMPS
+${chapters.map(c => `- [${c.time}] ${c.title}`).join('\n')}` : ''}
+
+## TRANSCRIPT
+${transcript || '(No transcript provided)'}
+
+## COMMUNITY COMMENTS
+${comments || '(No comments provided)'}
+
+---
+
+## INSTRUCTIONS
+Generate a report with the following sections. Use clear Markdown formatting.
+
+### 1. Quick Brief
+A 2-3 sentence synthesis of the video's core message and purpose. Mention the channel/author if known.
+
+### 2. Key Takeaways
+5-7 bullet points of the most actionable, surprising, or important information from the video. Cite timestamps where possible.
+
+### 3. Detailed Breakdown
+Go through the video in chronological order. If chapters exist, use them as headers. If not, infer 3-5 logical segments. For each segment:
+- Summarize the key concepts.
+- Note specific claims, numbers, tools, or references.
+- Attach relevant **Community Context**: corrections, clarifications, resource links, or high-value comments tied to that timestamp/topic.
+- Highlight any "high-density" moments where a lot of concrete information is delivered.
+
+### 4. Resources Mentioned
+Extract any books, papers, tools, links, or products referenced in the video or comments. Format as:
+- **Name** — Description — [Timestamp]
+
+### 5. Community Corrections & Notes
+List comments that correct, expand upon, or challenge the video content. Include the comment's approximate timestamp/topic and its core point.
+
+### 6. Unresolved / Top Questions
+If comments contain recurring questions that the video does not clearly answer, list them here with approximate upvote weight if mentioned.
+
+IMPORTANT RULES:
+- Only use facts present in the provided data.
+- Do not say "the video discusses" repeatedly; be direct.
+- If the transcript quality is poor (many [music], [applause], or fragmented sentences), note this briefly but still extract meaning.
+- If comments are sparse, omit the Community sections gracefully rather than inventing them.`;
+
+  return { systemPrompt, userPrompt, fullText: systemPrompt + '\n\n' + userPrompt };
+}
+
+function buildPrompt() {
+  const payload = buildPromptPayload();
+  currentPrompt = payload.userPrompt;
+  document.getElementById('promptOutput').textContent = currentPrompt;
+  document.getElementById('promptTokens').textContent = '~' + Math.round(payload.fullText.length / 4);
+  if (currentTab !== 'prompt') switchTab('prompt');
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('reportOutput').classList.remove('hidden');
+  document.getElementById('reportOutput').innerHTML = `<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm p-4 rounded-lg mb-4">Prompt assembled! Switch to the <strong>Prompt Preview</strong> tab to review or copy it.</div>`;
+}
+
+function copyPrompt() {
+  if (!currentPrompt) buildPrompt();
+  navigator.clipboard.writeText(currentPrompt).then(() => {
+    alert('Prompt copied to clipboard!');
+  });
+}
+
+// ── AI Report Generation ────────────────────────────────────────
+async function generateReport() {
+  const useApi = document.getElementById('useApi').checked;
+  if (!currentPrompt) buildPrompt();
+  switchTab('report');
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('reportOutput').classList.remove('hidden');
+  document.getElementById('reportOutput').innerHTML = `<div class="flex items-center gap-3 text-gray-500"><div class="loader"></div><span>Building report...</span></div>`;
+
+  if (!useApi) {
+    document.getElementById('reportOutput').innerHTML = `
+      <div class="bg-indigo-50 border border-indigo-200 p-5 rounded-xl">
+        <h3 class="text-indigo-900 font-semibold mb-2">Prompt Ready</h3>
+        <p class="text-sm text-indigo-700 mb-4">You've chosen not to use an AI API key. The optimized prompt has been assembled. Click below to copy it, then paste it into ChatGPT, Claude, or any other LLM.</p>
+        <button onclick="copyPrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Copy Prompt</button>
+      </div>`;
+    return;
+  }
+
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const provider = document.getElementById('provider').value;
+  const model = document.getElementById('model').value.trim();
+  if (!apiKey) {
+    document.getElementById('reportOutput').innerHTML = `<div class="text-red-600 bg-red-50 border border-red-200 p-4 rounded-lg text-sm">Please enter an AI API key or disable "Call API directly".</div>`;
+    return;
+  }
+
+  document.getElementById('btnText').textContent = 'Generating...';
+  document.getElementById('btnLoader').classList.remove('hidden');
+
+  try {
+    let responseText = '';
+    const { systemPrompt } = buildPromptPayload();
+
+    if (provider === 'openai' || provider === 'openrouter') {
+      const endpoint = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
+      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
+      if (provider === 'openrouter') { headers['HTTP-Referer'] = window.location.href; headers['X-Title'] = 'TubeLens'; }
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model, messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: currentPrompt }
+          ],
+          temperature: 0.4, max_tokens: 4096
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data));
+      responseText = data.choices[0].message.content;
+    } else if (provider === 'anthropic') {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model, max_tokens: 4096, system: systemPrompt,
+          messages: [{ role: 'user', content: currentPrompt }]
+ })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data));
+      responseText = data.content[0].text;
+    }
+
+    document.getElementById('reportOutput').innerHTML = marked.parse(responseText);
+  } catch (err) {
+    console.error(err);
+    document.getElementById('reportOutput').innerHTML = `
+      <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-sm mb-4">
+        <p class="font-semibold">API Error</p>
+        <p>${err.message}</p>
+      </div>
+      <div class="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+        <p class="text-xs font-semibold text-gray-700 mb-2">You can copy the assembled prompt and paste it into ChatGPT/Claude manually instead:</p>
+        <button onclick="copyPrompt()" class="bg-gray-800 hover:bg-gray-900 text-white text-xs font-medium px-3 py-2 rounded-md transition-colors">Copy Prompt</button>
+      </div>`;
+  } finally {
+    document.getElementById('btnText').textContent = '✨ Generate Report';
+    document.getElementById('btnLoader').classList.add('hidden');
+  }
+}
+</script>
+</body>
+</html>
