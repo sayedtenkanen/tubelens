@@ -68,19 +68,19 @@
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">AI Provider</label>
             <select id="provider" class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white">
+              <option value="local">Local (Ollama via server)</option>
               <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
               <option value="openrouter">OpenRouter</option>
             </select>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">AI API Key</label>
             <input type="password" id="apiKey" placeholder="sk-..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
- <p class="text-[11px] text-gray-400 mt-1">Key is only stored in page memory. Never persisted.</p>
+ <p class="text-[11px] text-gray-400 mt-1">Key is only stored in page memory. Never persisted. Not needed for Local provider.</p>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Model</label>
-            <input type="text" id="model" value="gpt-4o-mini" class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+            <input type="text" id="model" value="qwen2.5:14b" class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
           </div>
         </div>
 
@@ -243,7 +243,7 @@ document.getElementById('useLocalServer').addEventListener('change', (e) => {
 });
 
 document.getElementById('provider').addEventListener('change', (e) => {
-  const map = { openai: 'gpt-4o-mini', anthropic: 'claude-3-5-sonnet-20241022', openrouter: 'openai/gpt-4o-mini' };
+  const map = { local: 'qwen2.5:14b', openai: 'gpt-4o-mini', openrouter: 'openai/gpt-4o-mini' };
   document.getElementById('model').value = map[e.target.value];
 });
 
@@ -261,6 +261,20 @@ function updateStats(id) {
   const val = document.getElementById(id).value;
   const suffix = id === 'transcript' ? 'transcriptStats' : 'commentStats';
   document.getElementById(suffix).textContent = `${val.length} chars · ~${Math.round(val.length / 4)} tokens`;
+}
+
+function extractVideoId(url) {
+  const patterns = [
+    /(?:v=|\/)([0-9A-Za-z_-]{11}).*/,
+    /(?:embed\/)([0-9A-Za-z_-]{11})/,
+    /(?:shorts\/)([0-9A-Za-z_-]{11})/
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  if (/^[0-9A-Za-z_-]{11}$/.test(url)) return url;
+  return null;
 }
 
 // ── Fetch Logic ──────────────────────────────────────────────────
@@ -319,8 +333,13 @@ async function fetchFromLocalServer() {
       updateStats('comments');
     }
     parseTimestamps();
-    status.textContent = `✓ Server OK — ${data.transcript ? 'transcript' : 'no transcript'}, ${data.comments?.length || 0} comments`;
-    status.className = 'text-[11px] text-green-600 mt-1 h-4';
+    if (data.errors && data.errors.length) {
+      status.textContent = `⚠ ${data.errors.join('; ')}`;
+      status.className = 'text-[11px] text-amber-600 mt-1 h-4';
+    } else {
+      status.textContent = `✓ Server OK — ${data.transcript ? 'transcript' : 'no transcript'}, ${data.comments?.length || 0} comments`;
+      status.className = 'text-[11px] text-green-600 mt-1 h-4';
+    }
   } catch (e) {
     status.textContent = '✗ Local server unreachable. Is "python tubelens_server.py" running?';
     status.className = 'text-[11px] text-red-500 mt-1 h-4';
@@ -330,7 +349,7 @@ async function fetchFromLocalServer() {
 // ── Parsing & Cleaning ──────────────────────────────────────────
 function parseTimestamps() {
   const desc = document.getElementById('description').value;
-  const regex = /^(?:\s*)(\d{1,2}:\d{2}(?::\d{2})?)\s*[—–\-–]\s*(.+)$/gm;
+  const regex = /^(?:\s*)(\d{1,2}:\d{2}(?::\d{2})?)\s*(?:[—–\-:]\s*)?(.+)$/gm;
   const matches = [...desc.matchAll(regex)];
   if (matches.length > 0) {
     const chapters = matches.map(m => ({ time: m[1], title: m[2].trim() }));
@@ -345,20 +364,23 @@ function parseTimestamps() {
 }
 
 function cleanComments(raw) {
-  const lines = raw.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const comments = raw.split(/\n---\n/);
   const spamPatterns = [
- /^\d+:\d+$/i,
+    /^\d+:\d+$/i,
     /^(first|second|early|who'?s watching|subscribe|check out my|follow me|love from|greetings from)/i,
     /^[👍🔥❤️👏🙏😂🤣💯✅🤔😍😭🥰🎉👌😎]+$/,
     /^\(.*\)$/,
-    /^https?:\/\/.+$/i  ];
-  return lines.filter(line => {
-    if (line.length < 4) return false;
-    if (spamPatterns.some(p => p.test(line))) return false;
-    const wordCount = (line.match(/\b[a-zA-Z]{2,}\b/g) || []).length;
-    if (wordCount < 2 && !line.match(/\d{1,2}:\d{2}/)) return false;
+    /^https?:\/\/.+$/i
+  ];
+  return comments.filter(comment => {
+    const firstLine = comment.split('\n')[0].trim();
+    if (firstLine.length < 4) return false;
+    if (firstLine.match(/^\[\d+ likes\]/)) return true;
+    if (spamPatterns.some(p => p.test(firstLine))) return false;
+    const wordCount = (firstLine.match(/\b[a-zA-Z]{2,}\b/g) || []).length;
+    if (wordCount < 2 && !firstLine.match(/\d{1,2}:\d{2}/)) return false;
     return true;
-  }).join('\n');
+  }).join('\n---\n');
 }
 
 function normalizeTranscript(text) {
@@ -480,7 +502,7 @@ async function generateReport() {
   const apiKey = document.getElementById('apiKey').value.trim();
   const provider = document.getElementById('provider').value;
   const model = document.getElementById('model').value.trim();
-  if (!apiKey) {
+  if (!apiKey && provider !== 'local') {
     document.getElementById('reportOutput').innerHTML = `<div class="text-red-600 bg-red-50 border border-red-200 p-4 rounded-lg text-sm">Please enter an AI API key or disable "Call API directly".</div>`;
     return;
   }
@@ -492,7 +514,28 @@ async function generateReport() {
     let responseText = '';
     const { systemPrompt } = buildPromptPayload();
 
-    if (provider === 'openai' || provider === 'openrouter') {
+    if (provider === 'local') {
+      const videoId = extractVideoId(document.getElementById('videoUrl').value);
+      const res = await fetch('http://localhost:8000/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system: systemPrompt,
+          prompt: currentPrompt,
+          model,
+          video_id: videoId
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      responseText = data.report;
+      if (data.warning) {
+        document.getElementById('reportOutput').innerHTML = `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm mb-4">${data.warning}</div>`;
+      }
+      if (data.saved_to) {
+        responseText += `\n\n---\n*Saved to ${data.saved_to}*`;
+      }
+    } else if (provider === 'openai' || provider === 'openrouter') {
       const endpoint = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
       const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
       if (provider === 'openrouter') { headers['HTTP-Referer'] = window.location.href; headers['X-Title'] = 'TubeLens'; }
@@ -510,18 +553,6 @@ async function generateReport() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data));
       responseText = data.choices[0].message.content;
-    } else if (provider === 'anthropic') {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({
-          model, max_tokens: 4096, system: systemPrompt,
-          messages: [{ role: 'user', content: currentPrompt }]
- })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data));
-      responseText = data.content[0].text;
     }
 
     document.getElementById('reportOutput').innerHTML = marked.parse(responseText);
