@@ -205,12 +205,12 @@
         <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">How to use this tool</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-600">
           <div class="space-y-2">
-            <p><span class="font-semibold text-gray-900">1.</span> <strong>Local server mode:</strong> Run <code class="bg-gray-100 px-1 rounded">pip install fastapi uvicorn youtube-transcript-api requests</code> then <code class="bg-gray-100 px-1 rounded">python tubelens_server.py</code>.</p>
-            <p><span class="font-semibold text-gray-900">2.</span> Paste a YouTube URL, enable "Use local server", click <strong>Fetch Info</strong>. Transcripts and comments populate automatically.</p>
+            <p><span class="font-semibold text-gray-900">1.</span> <strong>Start the backend:</strong> run <code class="bg-gray-100 px-1 rounded">uv run python tubelens_server.py</code> in the project folder, and make sure Ollama is running (<code class="bg-gray-100 px-1 rounded">ollama serve</code>).</p>
+            <p><span class="font-semibold text-gray-900">2.</span> Check <strong>"Use local server"</strong>, paste a YouTube URL, click <strong>Fetch Info</strong>. Transcript fills automatically; add a YouTube Data API key above to also auto-fetch the description and comments.</p>
           </div>
           <div class="space-y-2">
-            <p><span class="font-semibold text-gray-900">3.</span> <strong>No server?</strong> Use the browser noEmbed fetch for title only, then paste transcript/comments manually from YouTube.</p>
-            <p><span class="font-semibold text-gray-900">4.</span> Click <strong>Assemble Prompt</strong> to copy into any LLM, or enter an AI API key and click <strong>Generate Report</strong> instantly.</p>
+            <p><span class="font-semibold text-gray-900">3.</span> Click <strong>Generate Report</strong> — no AI key needed with the default "Local (Ollama via server)" provider. Reports are saved to <code class="bg-gray-100 px-1 rounded">summaries/</code>. Very long videos are processed automatically in parts.</p>
+            <p><span class="font-semibold text-gray-900">4.</span> <strong>Alternatives:</strong> use OpenAI/OpenRouter via "Call AI API directly" (bring your own key), or click <strong>Assemble Prompt</strong> to copy the prompt into any chat LLM. No server? Paste transcript and comments manually — everything still works.</p>
           </div>
         </div>
       </div>
