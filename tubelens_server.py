@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
 """
 TubeLens Local Server
-Fetches transcripts (no key) and optionally comments + metadata via YouTube Data API.
-Install:  pip install fastapi uvicorn youtube-transcript-api requests
-Run:      python tubelens_server.py
+
+Local FastAPI backend for the TubeLens personal YouTube summarizer
+(frontend: tubelens-personal.html).
+
+Endpoints:
+    GET  /fetch     Fetch metadata, transcript, and comments for a video.
+    POST /generate  Proxy an LLM call to a local Ollama instance and save the report.
+
+Transcripts need no API key (youtube-transcript-api >= 1.0). Full descriptions
+and comments require a free YouTube Data API v3 key. Fetches are cached in
+cache/; generated reports are saved to summaries/.
+
+Setup:  uv sync            (or: pip install fastapi uvicorn "youtube-transcript-api>=1.0" requests)
+Run:    uv run python tubelens_server.py
+CLI:    uv run python tubelens_server.py --url "YOUTUBE_URL" [--yt-api-key KEY]
 """
 import argparse
 import json
@@ -29,6 +41,9 @@ YT_DATA_API = "https://www.googleapis.com/youtube/v3"
 
 
 def extract_video_id(url: str) -> str | None:
+    """Extract the 11-character video ID from a YouTube URL (watch, youtu.be,
+    embed, or shorts form) or return the input if it already is a bare ID.
+    Returns None if no ID can be found."""
     patterns = [
         r"(?:v=|\/)([0-9A-Za-z_-]{11}).*",
         r"(?:embed\/)([0-9A-Za-z_-]{11})",
@@ -44,6 +59,7 @@ def extract_video_id(url: str) -> str | None:
 
 
 def seconds_to_hms(seconds: float) -> str:
+    """Format seconds as H:MM:SS, or M:SS when under an hour (e.g. 330 -> "5:30")."""
     h = int(seconds // 3600)
     m = int((seconds % 3600) // 60)
     s = int(seconds % 60)
@@ -53,7 +69,11 @@ def seconds_to_hms(seconds: float) -> str:
 
 
 def fetch_transcript(video_id: str) -> tuple[str, str | None]:
-    """Returns (transcript_text, error). One of the two is meaningful."""
+    """Fetch a transcript with timestamped lines ("[M:SS] text").
+
+    Tries English first, then falls back to the first available language.
+    Returns (transcript_text, None) on success or ("", error_message) on failure.
+    """
     try:
         api = YouTubeTranscriptApi()
         fetched = api.fetch(video_id)
@@ -74,6 +94,8 @@ def fetch_transcript(video_id: str) -> tuple[str, str | None]:
 
 
 def get_basic_meta(video_id: str) -> dict:
+    """Get title and channel via YouTube's public oEmbed endpoint (no API key).
+    Returns empty strings on failure — oEmbed is best-effort only."""
     try:
         r = requests.get(
             f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json",
@@ -88,6 +110,9 @@ def get_basic_meta(video_id: str) -> dict:
 
 
 def get_api_meta(video_id: str, api_key: str) -> tuple[dict, str | None]:
+    """Get title, full description, channel, and publish date via the
+    YouTube Data API v3 (requires key).
+    Returns (meta_dict, None) on success or ({}, error_message) on failure."""
     try:
         r = requests.get(
             f"{YT_DATA_API}/videos",
@@ -112,6 +137,10 @@ def get_api_meta(video_id: str, api_key: str) -> tuple[dict, str | None]:
 
 
 def get_comments(video_id: str, api_key: str, max_results: int = 100) -> tuple[list[str], str | None]:
+    """Get top comments (relevance order, single page, max 100) via the
+    YouTube Data API v3. Each comment is formatted "[N likes] @author: text"
+    so like counts survive into the LLM prompt.
+    Returns (comments, None) on success or ([], error_message) on failure."""
     try:
         r = requests.get(
             f"{YT_DATA_API}/commentThreads",
@@ -144,6 +173,19 @@ def get_comments(video_id: str, api_key: str, max_results: int = 100) -> tuple[l
 
 @app.get("/fetch")
 def fetch_video(url: str, yt_api_key: str = None, refresh: bool = False):
+    """Fetch everything needed to summarize a video.
+
+    Query params:
+        url         YouTube URL (or bare video ID).
+        yt_api_key  Optional YouTube Data API v3 key. Without it, only
+                    title/channel (oEmbed) and transcript are returned.
+        refresh     If true, bypass and overwrite the cache.
+
+    Returns JSON: {video_id, title, channel, description, transcript,
+    comments, errors}. Partial failures land in `errors` rather than
+    failing the request. Successful results are cached in cache/<id>.json;
+    a cached comment-less entry is ignored when a key is provided.
+    """
     vid = extract_video_id(url)
     if not vid:
         return {"error": "Invalid YouTube URL"}
@@ -207,9 +249,20 @@ CACHE_DIR = pathlib.Path(__file__).parent / "cache"
 
 @app.post("/generate")
 def generate(payload: dict = Body(...)):
-    """
-    payload: { "system": str, "prompt": str, "model": str,
-               "num_ctx": int (default 32768), "video_id": str (optional) }
+    """Proxy an LLM call to the local Ollama instance (localhost:11434).
+
+    Request JSON:
+        system    System prompt.
+        prompt    User prompt (the assembled video data + instructions).
+        model     Ollama model name (default "qwen2.5:14b").
+        num_ctx   Context window to request (default 32768). Ollama silently
+                  truncates prompts that exceed it, hence the warning below.
+        video_id  Optional; when set, the report is saved to
+                  summaries/<video_id>-<date>.md.
+
+    Returns JSON: {report, saved_to, warning} on success, or {error} if
+    Ollama is unreachable or generation fails. `warning` is set when the
+    prompt approaches the requested context window.
     """
     model = payload.get("model", "qwen2.5:14b")
     num_ctx = int(payload.get("num_ctx", 32768))
@@ -247,6 +300,9 @@ def generate(payload: dict = Body(...)):
 
 # ── CLI mode (no server) ────────────────────────────────────────────────────
 def cli_mode(url: str, yt_api_key: str | None):
+    """Print a raw markdown dump (metadata, description, transcript, comments)
+    to stdout without starting the server or calling an LLM. Useful for piping
+    into other tools."""
     vid = extract_video_id(url)
     meta = get_basic_meta(vid)
     if yt_api_key:
