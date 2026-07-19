@@ -58,7 +58,11 @@ uv run python tubelens_server.py --url "https://www.youtube.com/watch?v=..." [--
 Returns `{video_id, title, channel, description, transcript, comments, errors}`. Comments are formatted `[N likes] @author: text`. Partial failures (bad key, no transcript) are reported in `errors` instead of failing the request.
 
 `POST /generate` with `{system, prompt, model, num_ctx?, video_id?}`
-Proxies to Ollama and returns `{report, saved_to, warning}` or `{error}`. `num_ctx` defaults to 32768 — Ollama silently truncates prompts beyond its context window, so a `warning` is returned when the prompt gets close.
+Proxies to Ollama and returns `{report, saved_to, warning, stats}` or `{error}`. `num_ctx` defaults to 32768 — Ollama silently truncates prompts beyond its context window, so a `warning` is returned when the prompt gets close, or when Ollama's reported token counts indicate truncation actually happened. `stats` carries prompt/completion token counts, duration, and tokens/sec (also shown in the report footer in the UI).
+
+## Observability
+
+The server logs every generation to the terminal it runs in: model, requested `num_ctx`, estimated prompt size at start; actual prompt/completion tokens, duration, and tok/s on completion; a WARNING line when truncation is detected; and the save path. Watch that terminal while a report generates — it's the only live view of the Ollama stage. For deeper debugging, Ollama's own logs (`ollama serve` output, or `OLLAMA_DEBUG=1 ollama serve`) show model loading, GPU/CPU layer split, and actual context allocation.
 
 ## Caching
 

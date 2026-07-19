@@ -19,14 +19,23 @@ CLI:    uv run python tubelens_server.py --url "YOUTUBE_URL" [--yt-api-key KEY]
 """
 import argparse
 import json
+import logging
 import pathlib
 import datetime
 import re
+import time
 import requests
 from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 import uvicorn
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("tubelens")
 
 app = FastAPI(title="TubeLens Proxy")
 
@@ -260,9 +269,11 @@ def generate(payload: dict = Body(...)):
         video_id  Optional; when set, the report is saved to
                   summaries/<video_id>-<date>.md.
 
-    Returns JSON: {report, saved_to, warning} on success, or {error} if
-    Ollama is unreachable or generation fails. `warning` is set when the
-    prompt approaches the requested context window.
+    Returns JSON: {report, saved_to, warning, stats} on success, or {error}
+    if Ollama is unreachable or generation fails. `warning` is set when the
+    prompt approaches or exceeds the requested context window. `stats`
+    contains {prompt_tokens, completion_tokens, duration_s, tokens_per_s}
+    when Ollama reports usage.
     """
     model = payload.get("model", "qwen2.5:14b")
     num_ctx = int(payload.get("num_ctx", 32768))
@@ -270,6 +281,10 @@ def generate(payload: dict = Body(...)):
     warning = None
     if approx_tokens > num_ctx * 0.9:
         warning = f"Prompt ~{approx_tokens} tokens may exceed context window ({num_ctx}). Output may miss content."
+
+    log.info("generate: model=%s num_ctx=%d prompt~%d tokens video_id=%s",
+             model, num_ctx, approx_tokens, payload.get("video_id", "-"))
+    t0 = time.monotonic()
     try:
         r = requests.post(OLLAMA_URL, json={
             "model": model,
@@ -282,11 +297,38 @@ def generate(payload: dict = Body(...)):
             "options": {"num_ctx": num_ctx},
         }, timeout=600)
         r.raise_for_status()
-        text = r.json()["choices"][0]["message"]["content"]
+        body = r.json()
+        text = body["choices"][0]["message"]["content"]
     except requests.ConnectionError:
+        log.error("generate: cannot reach Ollama at %s", OLLAMA_URL)
         return {"error": "Cannot reach Ollama at localhost:11434. Is `ollama serve` running?"}
     except Exception as e:
+        log.error("generate: failed after %.1fs: %s", time.monotonic() - t0, e)
         return {"error": f"Generation failed: {e}"}
+
+    duration = time.monotonic() - t0
+    stats = None
+    usage = body.get("usage") or {}
+    if usage:
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
+        stats = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "duration_s": round(duration, 1),
+            "tokens_per_s": round(completion_tokens / duration, 1) if duration > 0 else None,
+        }
+        log.info("generate: done in %.1fs — prompt=%d completion=%d tokens (%.1f tok/s)",
+                 duration, prompt_tokens, completion_tokens,
+                 completion_tokens / duration if duration > 0 else 0)
+        # Real truncation check: Ollama reports post-truncation prompt size.
+        # If it's near num_ctx, or far below our char-based estimate, input was cut.
+        if prompt_tokens >= num_ctx * 0.95 or (approx_tokens > 0 and prompt_tokens < approx_tokens * 0.7):
+            warning = (f"Ollama processed {prompt_tokens} prompt tokens vs ~{approx_tokens} sent "
+                       f"(num_ctx={num_ctx}) — input was likely truncated. Raise num_ctx.")
+            log.warning("generate: %s", warning)
+    else:
+        log.info("generate: done in %.1fs (no usage stats reported)", duration)
 
     saved_path = None
     vid = payload.get("video_id")
@@ -294,8 +336,9 @@ def generate(payload: dict = Body(...)):
         SUMMARIES_DIR.mkdir(exist_ok=True)
         saved_path = str(SUMMARIES_DIR / f"{vid}-{datetime.date.today()}.md")
         pathlib.Path(saved_path).write_text(text, encoding="utf-8")
+        log.info("generate: report saved to %s", saved_path)
 
-    return {"report": text, "saved_to": saved_path, "warning": warning}
+    return {"report": text, "saved_to": saved_path, "warning": warning, "stats": stats}
 
 
 # ── CLI mode (no server) ────────────────────────────────────────────────────

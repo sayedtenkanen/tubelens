@@ -533,8 +533,11 @@ async function generateReport() {
       if (data.warning) {
         warningHtml = `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm mb-4">${data.warning}</div>`;
       }
+      if (data.stats) {
+        responseText += `\n\n---\n*Generated in ${data.stats.duration_s}s — ${data.stats.prompt_tokens} prompt + ${data.stats.completion_tokens} output tokens (${data.stats.tokens_per_s} tok/s)*`;
+      }
       if (data.saved_to) {
-        responseText += `\n\n---\n*Saved to ${data.saved_to}*`;
+        responseText += `${data.stats ? '' : '\n\n---'}\n*Saved to ${data.saved_to}*`;
       }
     } else if (provider === 'openai' || provider === 'openrouter') {
       const endpoint = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
