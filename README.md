@@ -11,27 +11,40 @@ tubelens-personal.html  ──►  tubelens_server.py  ──►  YouTube (trans
 
 Two files do the work: `tubelens_server.py` (FastAPI backend) and `tubelens-personal.html` (single-file frontend — just open it in a browser).
 
-## Setup
+## One-time setup
 
 Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/) (or plain pip).
 
-```bash
-uv sync                                  # or: pip install fastapi uvicorn "youtube-transcript-api>=1.0" requests
-uv run python tubelens_server.py         # starts the server at localhost:8000
-```
+1. Install Python dependencies:
 
-For report generation, install [Ollama](https://ollama.com) and pull a model:
+   ```bash
+   uv sync    # or: pip install fastapi uvicorn "youtube-transcript-api>=1.0" requests
+   ```
 
-```bash
-ollama pull qwen2.5:14b
-ollama serve
-```
+2. Install [Ollama](https://ollama.com) and pull a model:
 
-Optional: a free [YouTube Data API v3 key](https://console.cloud.google.com/apis/library/youtube.googleapis.com) enables auto-fetched descriptions and comments. Without it you still get title, channel, and transcript; comments can be pasted manually.
+   ```bash
+   ollama pull qwen2.5:14b
+   ```
 
-## Usage
+3. Optional but recommended: get a free [YouTube Data API v3 key](https://console.cloud.google.com/apis/library/youtube.googleapis.com). It enables auto-fetched comments and descriptions — the comment analysis is the best part of the tool. Without it you still get title, channel, and transcript; comments can be pasted manually.
 
-**Browser (main flow):** open `tubelens-personal.html`, enable "Use local server", paste a YouTube URL, click **Fetch Info**, then **Generate Report**. With provider "Local (Ollama via server)" — the default — no AI API key is needed. Reports are rendered in the page and saved to `summaries/<video_id>-<date>.md`. OpenAI and OpenRouter are available as cloud alternatives (bring your own key).
+## Using the tool
+
+1. Start Ollama: `ollama serve` (skip if it already runs in the background — on most installs it does).
+2. Start the backend from the project folder:
+
+   ```bash
+   uv run python tubelens_server.py    # serves at localhost:8000
+   ```
+
+3. Open `tubelens-personal.html` in your browser (double-click the file).
+4. Check **"Use local server"** and paste your YouTube API key in the field that appears (if you have one).
+5. Paste a video URL and click **Fetch Info** — title, transcript, and comments fill in automatically.
+6. Click **Generate Report**. Provider defaults to "Local (Ollama via server)", so no AI API key is needed. OpenAI and OpenRouter are available as cloud alternatives (bring your own key).
+7. Read the report in the page; a copy is saved to `summaries/<video_id>-<date>.md`.
+
+Refetching the same video is instant (cached in `cache/`). If a video has no transcript or has comments disabled, an amber note explains what's missing instead of failing silently.
 
 **CLI (data dump only):** prints raw markdown (metadata + transcript + comments) to stdout without calling an LLM:
 
