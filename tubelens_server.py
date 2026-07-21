@@ -39,6 +39,13 @@ log = logging.getLogger("tubelens")
 
 app = FastAPI(title="TubeLens Proxy")
 
+# Serve the frontend HTML
+@app.get("/")
+def serve_frontend():
+    from fastapi.responses import FileResponse
+    html_path = pathlib.Path(__file__).parent / "tubelens-personal.html"
+    return FileResponse(str(html_path), media_type="text/html")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -181,7 +188,7 @@ def get_comments(video_id: str, api_key: str, max_results: int = 100) -> tuple[l
 
 
 @app.get("/fetch")
-def fetch_video(url: str, yt_api_key: str = None, refresh: bool = False):
+def fetch_video(url: str, yt_api_key: str | None = None, refresh: bool = False):
     """Fetch everything needed to summarize a video.
 
     Query params:
@@ -252,8 +259,20 @@ def fetch_video(url: str, yt_api_key: str = None, refresh: bool = False):
 
 
 OLLAMA_URL = "http://localhost:11434/v1/chat/completions"
+OLLAMA_API = "http://localhost:11434"
 SUMMARIES_DIR = pathlib.Path(__file__).parent / "summaries"
 CACHE_DIR = pathlib.Path(__file__).parent / "cache"
+
+
+@app.get("/ollama/models")
+def ollama_models():
+    """Proxy Ollama's /api/tags to avoid CORS issues in the browser."""
+    try:
+        r = requests.get(f"{OLLAMA_API}/api/tags", timeout=3)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        return {"error": str(e), "models": []}
 
 
 @app.post("/generate")
@@ -348,6 +367,9 @@ def cli_mode(url: str, yt_api_key: str | None):
     to stdout without starting the server or calling an LLM. Useful for piping
     into other tools."""
     vid = extract_video_id(url)
+    if not vid:
+        print("Video ID could not be extracted from the URL. Please provide a valid YouTube URL or video ID.")
+        return
     meta = get_basic_meta(vid)
     if yt_api_key:
         api_meta, _ = get_api_meta(vid, yt_api_key)
@@ -360,7 +382,7 @@ def cli_mode(url: str, yt_api_key: str | None):
 
     md = f"""# {meta.get('title', 'Video Report')}
 
-**Channel:** {meta.get('channel', 'Unknown')}  
+**Channel:** {meta.get('channel', 'Unknown')}
 **URL:** {url}
 
 ## Description

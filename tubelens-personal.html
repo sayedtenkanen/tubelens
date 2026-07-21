@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TubeLens — Personal Video Summarizer</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {}
+    }
+  }
+</script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -21,141 +29,179 @@
     height: 20px;
     animation: spin 1s linear infinite;
   }
+  .dark .loader {
+    border-color: #374151;
+  }
   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   textarea { min-height: 120px; }
   .markdown-body h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; color: #111827; }
+  .dark .markdown-body h1 { color: #f9fafb; }
   .markdown-body h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.25rem; }
+  .dark .markdown-body h2 { color: #e5e7eb; border-color: #374151; }
   .markdown-body h3 { font-size: 1.1rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.4rem; color: #374151; }
+  .dark .markdown-body h3 { color: #d1d5db; }
   .markdown-body ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
   .markdown-body li { margin-bottom: 0.35rem; }
   .markdown-body blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #4b5563; font-style: italic; background: #eef2ff; border-radius: 0 0.375rem 0.375rem 0; padding: 0.5rem 1rem; margin: 0.75rem 0; }
+  .dark .markdown-body blockquote { color: #c7d2fe; background: #1e1b4b; }
   .markdown-body code { background: #f3f4f6; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-size: 0.9em; }
+  .dark .markdown-body code { background: #374151; color: #f9fafb; }
   .markdown-body pre { background: #1f2937; color: #f9fafb; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin: 0.75rem 0; }
   .markdown-body a { color: #4f46e5; text-decoration: underline; }
+  .dark .markdown-body a { color: #a5b4fc; }
   .markdown-body hr { margin: 1.5rem 0; border: 0; border-top: 1px solid #e5e7eb; }
+  .dark .markdown-body hr { border-color: #374151; }
   .markdown-body p { margin-bottom: 0.75rem; line-height: 1.6; }
+  #darkModeToggle { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0 4px; }
+  #darkModeToggle:hover { text-decoration: underline; }
+
+  /* Dark mode fallback for elements that Tailwind CDN may not process */
+  .dark body, .dark #app { background-color: #111827; color: #ffffff; }
+  .dark .bg-white { background-color: #1f2937 !important; }
+  .dark .bg-gray-50 { background-color: #111827 !important; }
+  .dark .bg-gray-100 { background-color: #374151 !important; }
+  .dark .bg-indigo-50 { background-color: #1e1b4b !important; }
+  .dark .text-gray-900 { color: #f9fafb !important; }
+  .dark .text-gray-800 { color: #e5e7eb !important; }
+  .dark .text-gray-700 { color: #d1d5db !important; }
+  .dark .text-gray-600 { color: #9ca3af !important; }
+  .dark .text-gray-500 { color: #9ca3af !important; }
+  .dark .text-gray-400 { color: #6b7280 !important; }
+  .dark .border-gray-200 { border-color: #374151 !important; }
+  .dark .border-gray-300 { border-color: #4b5563 !important; }
+  .dark .hover\:bg-gray-100:hover { background-color: #374151 !important; }
+  .dark .hover\:bg-gray-200:hover { background-color: #4b5563 !important; }
 </style>
 </head>
-<body class="bg-gray-50 text-gray-800 min-h-screen">
+<body class="bg-gray-50 text-gray-800 min-h-screen dark:bg-gray-900 dark:text-white">
 
 <div id="app" class="max-w-7xl mx-auto p-4 md:p-8">
   <!-- Header -->
   <div class="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900 tracking-tight">TubeLens</h1>
-      <p class="text-gray-500 text-sm mt-1">Personal YouTube deep-summarizer. Runs entirely in your browser.</p>
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">TubeLens</h1>
+      <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Personal YouTube deep-summarizer. Runs entirely in your browser.</p>
     </div>
-    <div class="flex items-center gap-3 text-xs text-gray-500 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
-      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Data stays local</span>
-      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> Auto-fetch ready</span>
+    <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <!--span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500 dark:bg-green-400"></span> Data stays local</span-->
+      <!--span-- class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-indigo-500 dark:bg-indigo-400"></span> Auto-fetch ready</span-->
+      <button id="darkModeToggle" class="text-gray-400 dark:text-gray-200 ml-3">🌙 Dark Mode</button>
     </div>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
     <!-- LEFT COLUMN: Inputs -->
     <div class="lg:col-span-5 space-y-5">
-      
+
       <!-- API Config -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">AI API Setup</h2>
-          <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">AI API Setup</h2>
+          <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer">
             <input type="checkbox" id="useApi" class="rounded text-indigo-600 focus:ring-indigo-500">
             <span>Call AI API directly</span>
           </label>
         </div>
         <div id="apiFields" class="space-y-3 opacity-50 pointer-events-none transition-opacity">
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">AI Provider</label>
-            <select id="provider" class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white">
+            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">AI Provider</label>
+            <select id="provider" class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
               <option value="local">Local (Ollama via server)</option>
               <option value="openai">OpenAI</option>
               <option value="openrouter">OpenRouter</option>
             </select>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">AI API Key</label>
-            <input type="password" id="apiKey" placeholder="sk-..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
- <p class="text-[11px] text-gray-400 mt-1">Key is only stored in page memory. Never persisted. Not needed for Local provider.</p>
+            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">AI API Key</label>
+            <input type="password" id="apiKey" placeholder="sk-..." class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
+ <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Key is only stored in page memory. Never persisted. Not needed for Local provider.</p>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Model</label>
-            <input type="text" id="model" value="qwen2.5:14b" class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
+            <input type="text" id="model" value="qwen2.5:14b" class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
+            <select id="modelSelect" class="hidden w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
+              <option value="">Loading models…</option>
+            </select>
+            <p id="ollamaStatus" class="text-[11px] mt-1 h-4"></p>
           </div>
         </div>
 
- <div class="mt-4 pt-4 border-t border-gray-200">
-          <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer font-medium">
+ <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <label class="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300 cursor-pointer font-medium">
             <input type="checkbox" id="useLocalServer" class="rounded text-indigo-600 focus:ring-indigo-500">
             <span>Use local server for transcript & comments</span>
           </label>
-          <p class="text-[11px] text-gray-500 mt-1 ml-5">
-            Runs <code class="bg-gray-100 px-1 rounded">python tubelens_server.py</code> on your machine to auto-pull data.
+          <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 ml-5">
+            Runs <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">python tubelens_server.py</code> on your machine to auto-pull data.
           </p>
           <div id="localServerConfig" class="mt-3">
-            <label class="block text-[11px] font-semibold text-gray-700 mb-1">YouTube Data API Key (optional)</label>
-            <input type="password" id="ytApiKey" placeholder="AIza..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
- <p class="text-[10px] text-gray-500 mt-1">Required for auto comments & full description. Transcripts work without it.</p>
+            <label class="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">YouTube Data API Key (optional)</label>
+            <input type="password" id="ytApiKey" placeholder="AIza..." class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
+ <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">Required for auto comments & full description. Transcripts work without it.</p>
+          </div>
+          <div id="fetchInstructions" class="mt-3 p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <p class="text-[11px] font-semibold text-amber-800 dark:text-amber-300 mb-1">Local server required for auto-fetch</p>
+            <p class="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed">1. Run <code class="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">uv run python tubelens_server.py</code> in your terminal.<br>2. Make sure Ollama is running: <code class="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">ollama serve</code><br>3. Check the box above to enable the Fetch Info button.</p>
           </div>
         </div>
       </div>
 
       <!-- Video Source -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Video Source</h2>
-        
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Video Source</h2>
+
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">YouTube URL</label>
+            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">YouTube URL</label>
             <div class="flex gap-2">
-              <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." class="flex-1 rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
-              <button onclick="fetchMetadata()" class="bg-gray-900 hover:bg-gray-800 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap">Fetch Info</button>
+              <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." class="flex-1 rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
+              <button id="fetchBtn" onclick="fetchMetadata()" disabled class="bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Fetch Info</button>
             </div>
-            <p id="fetchStatus" class="text-[11px] text-gray-400 mt-1 h-4"></p>
+            <p id="fetchStatus" class="text-[11px] text-gray-400 dark:text-gray-500 mt-1 h-4"></p>
           </div>
-          
+
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Title</label>
-            <input type="text" id="videoTitle" class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border">
+            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+            <input type="text" id="videoTitle" class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
           </div>
 
           <div>
             <div class="flex items-center justify-between mb-1">
-              <label class="block text-xs font-medium text-gray-700">Description</label>
-              <button onclick="parseTimestamps()" class="text-[11px] text-indigo-600 hover:text-indigo-800 font-medium">Parse Chapters</button>
+              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Description</label>
+              <button onclick="parseTimestamps()" class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium">Parse Chapters</button>
             </div>
-            <textarea id="description" placeholder="Paste the video description (with timestamps)..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono text-xs leading-relaxed"></textarea>
-            <p id="chapterCount" class="text-[11px] text-indigo-600 mt-1 h-4"></p>
+            <textarea id="description" placeholder="Paste the video description (with timestamps)..." class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono text-xs leading-relaxed bg-white dark:bg-gray-700 dark:text-white"></textarea>
+            <p id="chapterCount" class="text-[11px] text-indigo-600 dark:text-indigo-400 mt-1 h-4"></p>
           </div>
         </div>
       </div>
 
       <!-- Transcript -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Transcript</h2>
-          <span id="transcriptStats" class="text-[11px] text-gray-400">0 chars</span>
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Transcript</h2>
+          <span id="transcriptStats" class="text-[11px] text-gray-400 dark:text-gray-500">0 chars</span>
         </div>
-        <textarea id="transcript" oninput="updateStats('transcript')" placeholder="Paste transcript here, or use the local server to auto-fetch..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono text-xs leading-relaxed"></textarea>
-        <p class="text-[11px] text-gray-400 mt-1">Supports raw text, .srt, or .vtt. Auto-fetched transcripts arrive pre-formatted.</p>
+        <textarea id="transcript" oninput="updateStats('transcript')" placeholder="Paste transcript here, or use the local server to auto-fetch..." class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono text-xs leading-relaxed bg-white dark:bg-gray-700 dark:text-white"></textarea>
+        <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Supports raw text, .srt, or .vtt. Auto-fetched transcripts arrive pre-formatted.</p>
       </div>
 
       <!-- Comments -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Comments</h2>
-          <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Comments</h2>
+          <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer">
             <input type="checkbox" id="filterComments" checked class="rounded text-indigo-600 focus:ring-indigo-500">
             <span>Smart Filter</span>
           </label>
         </div>
-        <textarea id="comments" oninput="updateStats('comments')" placeholder="Paste top comments, or auto-fetch via local server..." class="w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono text-xs leading-relaxed"></textarea>
-        <p id="commentStats" class="text-[11px] text-gray-400 mt-1">0 chars</p>
+        <textarea id="comments" oninput="updateStats('comments')" placeholder="Paste top comments, or auto-fetch via local server..." class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono text-xs leading-relaxed bg-white dark:bg-gray-700 dark:text-white"></textarea>
+        <p id="commentStats" class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">0 chars</p>
       </div>
 
       <!-- Action Buttons -->
       <div class="flex flex-col gap-2">
-        <button onclick="buildPrompt()" class="w-full bg-white border-2 border-indigo-600 text-indigo-700 hover:bg-indigo-50 font-semibold py-3 px-4 rounded-xl transition-all text-sm">
+        <button onclick="buildPrompt()" class="w-full bg-white dark:bg-gray-800 border-2 border-indigo-600 dark:border-indigo-500 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-gray-700 font-semibold py-3 px-4 rounded-xl transition-all text-sm">
  📋 Assemble Prompt        </button>
         <button onclick="generateReport()" id="generateBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition-all text-sm flex items-center justify-center gap-2">
           <span id="btnText">✨ Generate Report</span>
@@ -166,14 +212,14 @@
 
     <!-- RIGHT COLUMN: Output -->
     <div class="lg:col-span-7 space-y-5">
-      
+
       <!-- Tabs -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div class="flex border-b border-gray-200">
-          <button onclick="switchTab('prompt')" id="tab-prompt" class="flex-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 transition-colors">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div class="flex border-b border-gray-200 dark:border-gray-700">
+          <button onclick="switchTab('prompt')" id="tab-prompt" class="flex-1 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
             Prompt Preview
           </button>
-          <button onclick="switchTab('report')" id="tab-report" class="flex-1 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50">
+          <button onclick="switchTab('report')" id="tab-report" class="flex-1 py-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-500 bg-indigo-50/50 dark:bg-gray-700/50">
             Final Report
           </button>
         </div>
@@ -181,36 +227,40 @@
         <!-- Prompt Pane -->
         <div id="pane-prompt" class="hidden p-5">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="text-xs font-semibold text-gray-500 uppercase">Raw Prompt (<span id="promptTokens">~0</span> tokens)</h3>
-            <button onclick="copyPrompt()" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-md transition-colors">
+            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Raw Prompt (<span id="promptTokens">~0</span> tokens)</h3>
+            <button onclick="copyPrompt()" class="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium px-3 py-1.5 rounded-md transition-colors">
               Copy to Clipboard
             </button>
           </div>
-          <pre id="promptOutput" class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs font-mono leading-relaxed text-gray-700 overflow-auto max-h-[600px] whitespace-pre-wrap"></pre>
+          <pre id="promptOutput" class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4 text-xs font-mono leading-relaxed text-gray-700 dark:text-gray-200 overflow-auto max-h-[600px] whitespace-pre-wrap"></pre>
         </div>
 
         <!-- Report Pane -->
         <div id="pane-report" class="p-5 md:p-8 min-h-[400px]">
           <div id="emptyState" class="flex flex-col items-center justify-center h-64 text-center">
-            <div class="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4 text-2xl">📝</div>
-            <p class="text-gray-900 font-medium">No report generated yet</p>
-            <p class="text-sm text-gray-500 mt-1 max-w-xs">Fill in the video data and click "Generate Report" or "Assemble Prompt" to see results here.</p>
+            <div class="w-16 h-16 bg-indigo-50 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4 text-2xl">📝</div>
+            <p class="text-gray-900 dark:text-white font-medium">No report generated yet</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-xs">Fill in the video data and click "Generate Report" or "Assemble Prompt" to see results here.</p>
           </div>
           <div id="reportOutput" class="markdown-body hidden"></div>
         </div>
       </div>
 
       <!-- How-to Helper -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">How to use this tool</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-600">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">How to use this tool</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-600 dark:text-gray-300">
           <div class="space-y-2">
-            <p><span class="font-semibold text-gray-900">1.</span> <strong>Start the backend:</strong> run <code class="bg-gray-100 px-1 rounded">uv run python tubelens_server.py</code> in the project folder, and make sure Ollama is running (<code class="bg-gray-100 px-1 rounded">ollama serve</code>).</p>
-            <p><span class="font-semibold text-gray-900">2.</span> Check <strong>"Use local server"</strong>, paste a YouTube URL, click <strong>Fetch Info</strong>. Transcript fills automatically; add a YouTube Data API key above to also auto-fetch the description and comments.</p>
+            <p><span class="font-semibold text-gray-900 dark:text-white">1.</span> <strong>Start the backend:</strong> run <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">uv run python tubelens_server.py</code> in the project folder, and make sure Ollama is running (<code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">ollama serve</code>).</p>
+            <p><span class="font-semibold text-gray-900 dark:text-white">2.</span> Open <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">http://localhost:8000</code> in your browser. Check <strong>"Use local server"</strong>, paste a YouTube URL, click <strong>Fetch Info</strong>. Transcript fills automatically; add a YouTube Data API key above to also auto-fetch the description and comments.</p>
+            <p><span class="font-semibold text-gray-900 dark:text-white">3.</span> Click <strong>Generate Report</strong> — no AI key needed with the default "Local (Ollama via server)" provider. Reports are saved to <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">summaries/</code>. Very long videos are processed automatically in parts.</p>
           </div>
           <div class="space-y-2">
-            <p><span class="font-semibold text-gray-900">3.</span> Click <strong>Generate Report</strong> — no AI key needed with the default "Local (Ollama via server)" provider. Reports are saved to <code class="bg-gray-100 px-1 rounded">summaries/</code>. Very long videos are processed automatically in parts.</p>
-            <p><span class="font-semibold text-gray-900">4.</span> <strong>Alternatives:</strong> use OpenAI/OpenRouter via "Call AI API directly" (bring your own key), or click <strong>Assemble Prompt</strong> to copy the prompt into any chat LLM. No server? Paste transcript and comments manually — everything still works.</p>
+            <p><span class="font-semibold text-gray-900 dark:text-white">4.</span> <strong>Alternatives:</strong> use OpenAI/OpenRouter via "Call AI API directly" (bring your own key), or click <strong>Assemble Prompt</strong> to copy the prompt into any chat LLM. No server? Paste transcript and comments manually — everything still works.</p>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700"><strong>Ollama Configuration:</strong></p>
+            <p class="text-[10px] text-gray-500 dark:text-gray-500"><strong>Network access:</strong> By default Ollama listens on <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">127.0.0.1</code>. To access from another device, set <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">OLLAMA_HOST=0.0.0.0</code> and restart Ollama.</p>
+            <p class="text-[10px] text-gray-500 dark:text-gray-500"><strong>CORS for direct browser access:</strong> Set <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">OLLAMA_ORIGINS=*</code> to allow web UIs to connect directly. Example: <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">export OLLAMA_ORIGINS='*'</code></p>
+            <p class="text-[10px] text-gray-500 dark:text-gray-500"><strong>API endpoint:</strong> <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">http://localhost:11434</code> — works with Python Requests, LangChain, LlamaIndex, and JavaScript fetch.</p>
           </div>
         </div>
       </div>
@@ -229,26 +279,101 @@ function syncApiFieldsState() {
   const el = document.getElementById('apiFields');
   el.classList.toggle('opacity-50', !on);
   el.classList.toggle('pointer-events-none', !on);
+  // Auto-check Ollama when enabling API fields with local provider
+  if (on && document.getElementById('provider').value === 'local') {
+    checkOllamaAndLoadModels();
+  }
 }
 document.getElementById('useApi').addEventListener('change', syncApiFieldsState);
 // Sync once on load: browsers restore checkbox state on reload without
 // firing 'change', which otherwise leaves the fields visually disabled.
 syncApiFieldsState();
 
+async function checkOllamaAndLoadModels() {
+  const modelInput = document.getElementById('model');
+  const modelSelect = document.getElementById('modelSelect');
+  const status = document.getElementById('ollamaStatus');
+  status.textContent = 'Checking Ollama...';
+  status.className = 'text-[11px] text-amber-600 dark:text-amber-400 mt-1 h-4';
+  // Try local server proxy first (avoids CORS), fall back to direct Ollama
+  let data = null;
+  try {
+    const res = await fetch('http://localhost:8000/ollama/models', { signal: AbortSignal.timeout(3000) });
+    data = await res.json();
+  } catch (e) {
+    // Local server not running — try Ollama directly
+    try {
+      const res = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(3000) });
+      data = await res.json();
+    } catch (e2) {
+      data = null;
+    }
+  }
+  if (!data || data.error) {
+    status.textContent = '✗ Ollama not reachable. Run `ollama serve` and ensure the local server is running.';
+    status.className = 'text-[11px] text-red-500 dark:text-red-400 mt-1 h-4';
+    modelInput.classList.remove('hidden');
+    modelSelect.classList.add('hidden');
+    return;
+  }
+  const models = (data.models || []).map(m => m.name).sort();
+  if (models.length === 0) {
+    status.textContent = '⚠ Ollama running but no models installed.';
+    status.className = 'text-[11px] text-amber-600 dark:text-amber-400 mt-1 h-4';
+    modelInput.classList.remove('hidden');
+    modelSelect.classList.add('hidden');
+    return;
+  }
+  modelSelect.innerHTML = '';
+  models.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    modelSelect.appendChild(opt);
+  });
+  const currentVal = modelInput.value;
+  if (models.includes(currentVal)) {
+    modelSelect.value = currentVal;
+  }
+  modelSelect.classList.remove('hidden');
+  modelInput.classList.add('hidden');
+  modelInput.value = modelSelect.value;
+  // Avoid stacking duplicate listeners
+  modelSelect.onchange = () => { modelInput.value = modelSelect.value; };
+  status.textContent = `\u2713 Ollama connected \u00b7 ${models.length} model${models.length > 1 ? 's' : ''} available`;
+  status.className = 'text-[11px] text-green-600 dark:text-green-400 mt-1 h-4';
+}
+
 document.getElementById('useLocalServer').addEventListener('change', (e) => {
   const status = document.getElementById('fetchStatus');
+  const fetchBtn = document.getElementById('fetchBtn');
+  const instructions = document.getElementById('fetchInstructions');
+
   if (e.target.checked) {
- status.textContent = 'Ready to call localhost:8000';
+    fetchBtn.disabled = false;
+    instructions.classList.add('hidden');
+    status.textContent = 'Ready to call localhost:8000';
     status.className = 'text-[11px] text-indigo-600 mt-1 h-4';
   } else {
+    fetchBtn.disabled = true;
+    instructions.classList.remove('hidden');
     status.textContent = '';
     status.className = 'text-[11px] text-gray-400 mt-1 h-4';
   }
 });
 
 document.getElementById('provider').addEventListener('change', (e) => {
-  const map = { local: 'qwen2.5:14b', openai: 'gpt-4o-mini', openrouter: 'openai/gpt-4o-mini' };
-  document.getElementById('model').value = map[e.target.value];
+  const modelInput = document.getElementById('model');
+  const modelSelect = document.getElementById('modelSelect');
+  if (e.target.value === 'local') {
+    checkOllamaAndLoadModels();
+  } else {
+    const map = { openai: 'gpt-4o-mini', openrouter: 'openai/gpt-4o-mini' };
+    modelInput.value = map[e.target.value] || '';
+    modelInput.classList.remove('hidden');
+    modelSelect.classList.add('hidden');
+    document.getElementById('ollamaStatus').textContent = '';
+  }
 });
 
 function switchTab(tab) {
@@ -327,7 +452,7 @@ async function fetchNoEmbed() {
       status.className = 'text-[11px] text-green-600 mt-1 h-4';
     } else throw new Error('No data');
   } catch (e) {
-    status.textContent = '✗ Could not fetch. Paste manually.';
+    status.textContent = '✗ Could not fetch. Paste a valid YouTube URL.';
     status.className = 'text-[11px] text-red-500 mt-1 h-4';
   }
 }
@@ -335,10 +460,14 @@ async function fetchNoEmbed() {
 async function fetchFromLocalServer() {
   const url = document.getElementById('videoUrl').value.trim();
   const status = document.getElementById('fetchStatus');
-  if (!url) return;
+  if (!url) {
+    status.textContent = 'Please enter a YouTube URL.';
+    status.className = 'text-[11px] text-amber-600 dark:text-amber-400 mt-1 h-4';
+    return;
+  }
   resetFieldsIfNewVideo(url);
   status.textContent = 'Contacting localhost:8000...';
-  status.className = 'text-[11px] text-indigo-600 mt-1 h-4';
+  status.className = 'text-[11px] text-indigo-600 dark:text-indigo-400 mt-1 h-4';
  try {
     const ytKey = document.getElementById('ytApiKey').value.trim();
     const params = new URLSearchParams({ url });
@@ -360,15 +489,23 @@ async function fetchFromLocalServer() {
     }
     parseTimestamps();
     if (data.errors && data.errors.length) {
-      status.textContent = `⚠ ${data.errors.join('; ')}`;
-      status.className = 'text-[11px] text-amber-600 mt-1 h-4';
+      status.textContent = `\u26a0 ${data.errors.join('; ')}`;
+      status.className = 'text-[11px] text-amber-600 dark:text-amber-400 mt-1 h-4';
     } else {
-      status.textContent = `✓ Server OK — ${data.transcript ? 'transcript' : 'no transcript'}, ${data.comments?.length || 0} comments`;
-      status.className = 'text-[11px] text-green-600 mt-1 h-4';
+      status.textContent = `\u2713 Server OK \u2014 ${data.transcript ? 'transcript' : 'no transcript'}, ${data.comments?.length || 0} comments`;
+      status.className = 'text-[11px] text-green-600 dark:text-green-400 mt-1 h-4';
     }
   } catch (e) {
-    status.textContent = '✗ Local server unreachable. Is "python tubelens_server.py" running?';
-    status.className = 'text-[11px] text-red-500 mt-1 h-4';
+    let msg = `\u2717 Fetch failed: ${e.message || e}`;
+    if (e instanceof TypeError && (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed to fetch'))) {
+      msg = '\u2717 Local server unreachable at localhost:8000. Make sure it\'s running: uv run python tubelens_server.py';
+    } else if (e.message && e.message.includes('Invalid')) {
+      msg = `\u2717 ${e.message}. Check that the URL is a valid YouTube link.`;
+    } else if (e.message && e.message.startsWith('HTTP')) {
+      msg = `\u2717 Server returned an error (${e.message}). Check the server logs.`;
+    }
+    status.textContent = msg;
+    status.className = 'text-[11px] text-red-500 dark:text-red-400 mt-1 h-4';
   }
 }
 
@@ -461,7 +598,7 @@ function buildPromptPayload() {
   const rawTrans = document.getElementById('transcript').value.trim();
   const rawComments = document.getElementById('comments').value.trim();
   const doFilter = document.getElementById('filterComments').checked;
-  
+
   const chapters = (window._chapters && window._chapters.length) ? window._chapters : parseTimestamps();
   const transcript = normalizeTranscript(rawTrans);
   const comments = doFilter ? cleanComments(rawComments) : rawComments;
@@ -618,12 +755,14 @@ async function generateReport() {
   const apiKey = document.getElementById('apiKey').value.trim();
   const model = document.getElementById('model').value.trim();
   if (!apiKey && provider !== 'local') {
-    document.getElementById('reportOutput').innerHTML = `<div class="text-red-600 bg-red-50 border border-red-200 p-4 rounded-lg text-sm">Please enter an AI API key or disable "Call API directly".</div>`;
+    document.getElementById('reportOutput').innerHTML = `<div class="text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 p-4 rounded-lg text-sm">Please enter an AI API key or disable "Call API directly".</div>`;
     return;
   }
 
   document.getElementById('btnText').textContent = 'Generating...';
   document.getElementById('btnLoader').classList.remove('hidden');
+  document.getElementById('generateBtn').disabled = true;
+  document.getElementById('generateBtn').classList.add('opacity-50', 'cursor-not-allowed');
 
   try {
     let responseText = '';
@@ -684,19 +823,27 @@ async function generateReport() {
   } catch (err) {
     console.error(err);
     document.getElementById('reportOutput').innerHTML = `
-      <div class="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg text-sm mb-4">
+      <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-400 p-4 rounded-lg text-sm mb-4">
         <p class="font-semibold">API Error</p>
         <p>${err.message}</p>
       </div>
       <div class="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-        <p class="text-xs font-semibold text-gray-700 mb-2">You can copy the assembled prompt and paste it into ChatGPT/Claude manually instead:</p>
-        <button onclick="copyPrompt()" class="bg-gray-800 hover:bg-gray-900 text-white text-xs font-medium px-3 py-2 rounded-md transition-colors">Copy Prompt</button>
+        <p class="text-gray-800 dark:text-gray-200">You can copy the assembled prompt and paste it into ChatGPT/Claude manually instead:</p>
+        <button onclick="copyPrompt()" class="bg-gray-800 dark:bg-gray-600 hover:bg-gray-900 dark:hover:bg-gray-500 text-white text-xs font-medium px-3 py-2 rounded-md transition-colors">Copy Prompt</button>
       </div>`;
   } finally {
     document.getElementById('btnText').textContent = '✨ Generate Report';
     document.getElementById('btnLoader').classList.add('hidden');
+    document.getElementById('generateBtn').disabled = false;
+    document.getElementById('generateBtn').classList.remove('opacity-50', 'cursor-not-allowed');
   }
 }
+
+// Dark mode toggle functionality
+document.getElementById('darkModeToggle').addEventListener('click', function() {
+  document.body.classList.toggle('dark');
+  this.textContent = document.body.classList.contains('dark') ? '☀️ Light Mode' : '🌙 Dark Mode';
+});
 </script>
 </body>
 </html>
