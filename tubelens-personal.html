@@ -576,6 +576,11 @@ function normalizeTranscript(text) {
 const REPORT_INSTRUCTIONS = `## INSTRUCTIONS
 Generate a report with the following sections. Use clear Markdown formatting.
 
+Start the report with a metadata header:
+# [Video Title]
+**URL:** [Video URL]
+**Date Prepared:** [Current Date]
+
 ### 1. Quick Brief
 A 2-3 sentence synthesis of the video's core message and purpose. Mention the channel/author if known.
 
@@ -591,6 +596,7 @@ Go through the video in chronological order. If chapters exist, use them as head
 
 ### 4. Resources Mentioned
 Extract any books, papers, tools, links, or products referenced in the video or comments. Format as:
+`
 - **Name** — Description — [Timestamp]
 
 ### 5. Community Corrections & Notes
@@ -607,6 +613,8 @@ IMPORTANT RULES:
 
 function buildPromptPayload() {
   const title = document.getElementById('videoTitle').value.trim() || 'Untitled Video';
+  const url = document.getElementById('videoUrl').value.trim() || '(No URL)';
+  const date = new Date().toLocaleDateString();
   const desc = document.getElementById('description').value.trim();
   const rawTrans = document.getElementById('transcript').value.trim();
   const rawComments = document.getElementById('comments').value.trim();
@@ -622,6 +630,8 @@ function buildPromptPayload() {
 
 ## VIDEO METADATA
 **Title:** ${title}
+**URL:** ${url}
+**Date Prepared:** ${date}
 **Description:** ${desc || '(None provided)'}
 
 ${chapters.length ? `## VIDEO CHAPTERS / TIMESTAMPS
@@ -718,10 +728,13 @@ ${chunks[i]}`;
 
   // Reduce stage: combine notes + chapters + comments into the final report.
   setStatus(`Combining ${chunks.length} parts into the final report…`);
+  const date = new Date().toLocaleDateString();
   const reducePrompt = `Analyze the following YouTube video data and produce a structured report in Markdown.
 
 ## VIDEO METADATA
 **Title:** ${parts.title}
+**URL:** ${document.getElementById('videoUrl').value.trim()}
+**Date Prepared:** ${date}
 **Description:** ${parts.desc || '(None provided)'}
 
 ${parts.chapters.length ? `## VIDEO CHAPTERS / TIMESTAMPS
