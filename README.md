@@ -1,6 +1,6 @@
 # TubeLens — Personal YouTube Deep-Summarizer
 
-Turn a YouTube video into a structured markdown report: summary, key takeaways, chapter-by-chapter breakdown, resources mentioned, and the best of the comment section (corrections, added resources, unanswered questions). Runs entirely on your machine; report generation uses a local Ollama model, so there are no API costs.
+Turn a YouTube video into a structured markdown report: summary, key takeaways, chapter-by-chapter breakdown, resources mentioned, and the best of the comment section (corrections, added resources, unanswered questions). Runs entirely on your machine; report generation defaults to a local Ollama model, so there are no API costs. If you don't have Ollama installed or running, switch the provider to OpenAI or OpenRouter in the UI and bring your own API key instead.
 
 ## How it works
 
@@ -27,17 +27,19 @@ Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/) (or plain pip), plus 
    cd frontend && npm install && npm run build && cd ..
    ```
 
-3. Install [Ollama](https://ollama.com) and pull a model:
+3. Install [Ollama](https://ollama.com) and pull a model — only needed for the default "Local (Ollama via server)" provider:
 
    ```bash
    ollama pull qwen2.5:14b
    ```
 
+   No Ollama, no GPU, or just don't want to run a local model? Skip this step — in the UI, set provider to **OpenAI** or **OpenRouter** (the API Key field enables automatically) and paste your own API key instead. Report generation then goes straight from your browser to that provider; everything else (fetching transcript/comments) still runs through the local server.
+
 4. Optional but recommended: get a free [YouTube Data API v3 key](https://console.cloud.google.com/apis/library/youtube.googleapis.com). It enables auto-fetched comments and descriptions — the comment analysis is the best part of the tool. Without it you still get title, channel, and transcript; comments can be pasted manually.
 
 ## Using the tool
 
-1. Start Ollama: `ollama serve` (skip if it already runs in the background — on most installs it does).
+1. Start Ollama: `ollama serve` (skip if it already runs in the background — on most installs it does, and skip entirely if you're using OpenAI/OpenRouter instead — see step 6).
 2. Start the backend from the project folder:
 
    ```bash
@@ -47,7 +49,7 @@ Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/) (or plain pip), plus 
 3. Open `http://localhost:8000` in your browser.
 4. Check **"Use local server"** and paste your YouTube API key in the field that appears (if you have one).
 5. Paste a video URL and click **Fetch Info** — title, transcript, and comments fill in automatically.
-6. Click **Generate Report**. Provider defaults to "Local (Ollama via server)", so no AI API key is needed. OpenAI and OpenRouter are available as cloud alternatives (bring your own key).
+6. Click **Generate Report**. Provider defaults to "Local (Ollama via server)", so no AI API key is needed. **If Ollama isn't installed or isn't running**, switch provider to **OpenAI** or **OpenRouter** — the API Key field enables automatically — and paste your own API key. No Ollama required for this path.
 7. Read the report in the page; a copy is saved to `summaries/<video_id>-<date>.md`.
 
 **Frontend development:** `cd frontend && npm run dev` starts a Vite dev server with hot reload at `http://localhost:5173` (point it at a running `tubelens_server.py` on port 8000, same as production). Run `npm run build` again whenever you're done editing so `tubelens_server.py` serves the updated build.
@@ -101,5 +103,13 @@ Surfaced during the frontend/ refactor (Aug 2026), carried over unchanged from t
 - **`outputPanel.js` `switchTab()`** class strings (`TAB_ACTIVE`/`TAB_INACTIVE`) don't include `dark:` variants, so the tab buttons lose their dark-mode styling the first time you switch tabs (the initial markup has the right dark classes; the JS-driven class swap doesn't).
 
 ~~Final Report text stayed black in dark mode~~ — fixed: the dark mode toggle now sets `.dark` on `<html>` instead of `<body>`. This was a regression introduced by the refactor, not a pre-existing issue — see `WORKPLAN.md` Task 13 for the root cause (a self-referential Tailwind `dark:` selector) and why the old single-file HTML didn't have it (a fallback rule that happened to compensate, removed during the refactor on a mistaken assumption).
+
+~~"Call AI API directly" felt mandatory even for the Local (Ollama) provider~~ — the checkbox itself has since been removed (see below); Provider, Model, and the live Ollama status check are always available. See `WORKPLAN.md` Tasks 14–15.
+
+~~"Call AI API directly" checkbox~~ — removed entirely. The API Key field now enables automatically based on the selected provider: disabled for Local (Ollama via server), enabled for OpenAI/OpenRouter. One less toggle to think about. See `WORKPLAN.md` Task 15.
+
+## License
+
+[MIT](LICENSE)
 
 ~~`apiConfigPanel.js` `loadConfig()` wrote the server's `yt_api_key` into the wrong field~~ — fixed: it now populates `ytApiKey`, and the field's help text notes it's auto-filled from `.env`'s `YT_API_KEY` (editable to override per-request).

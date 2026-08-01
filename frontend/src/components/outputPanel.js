@@ -19,7 +19,7 @@ const TAB_INACTIVE =
  * report-generation orchestration that ties every other panel together.
  *
  * @param {Object} deps
- * @param {{isUsingApi(): boolean, getProvider(): string, getApiKey(): string, getModel(): string}} deps.api
+ * @param {{getProvider(): string, getApiKey(): string, getModel(): string}} deps.api
  * @param {{getVideoUrl(): string, getVideoTitle(): string, getDescription(): string, getChapters(): Array}} deps.videoSource
  * @param {{getValue(): string}} deps.transcript
  * @param {{getValue(): string, isFilterEnabled(): boolean}} deps.comments
@@ -112,7 +112,6 @@ export function mountOutputPanel(container, deps) {
   container.querySelector("#copyPromptBtn").addEventListener("click", copyPrompt);
 
   async function generateReport(actions) {
-    const useApi = api.isUsingApi();
     const provider = api.getProvider();
 
     if (!state.currentPrompt) buildPrompt();
@@ -121,23 +120,10 @@ export function mountOutputPanel(container, deps) {
     reportOutput.classList.remove("hidden");
     reportOutput.innerHTML = `<div class="flex items-center gap-3 text-gray-500"><div class="loader"></div><span>Building report...</span></div>`;
 
-    // The Local provider goes through tubelens_server.py, not directly to an
-    // AI API, so it isn't gated behind the "Call AI API directly" checkbox.
-    if (!useApi && provider !== "local") {
-      reportOutput.innerHTML = `
-        <div class="bg-indigo-50 border border-indigo-200 p-5 rounded-xl">
-          <h3 class="text-indigo-900 font-semibold mb-2">Prompt Ready</h3>
-          <p class="text-sm text-indigo-700 mb-4">You've chosen not to use an AI API key. The optimized prompt has been assembled. Click below to copy it, then paste it into ChatGPT, Claude, or any other LLM.</p>
-          <button id="copyPromptBtn2" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">Copy Prompt</button>
-        </div>`;
-      reportOutput.querySelector("#copyPromptBtn2").addEventListener("click", copyPrompt);
-      return;
-    }
-
     const apiKey = api.getApiKey();
     const model = api.getModel();
     if (!apiKey && provider !== "local") {
-      reportOutput.innerHTML = `<div class="text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 p-4 rounded-lg text-sm">Please enter an AI API key or disable "Call API directly".</div>`;
+      reportOutput.innerHTML = `<div class="text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 p-4 rounded-lg text-sm">Please enter an AI API key for ${provider === "openai" ? "OpenAI" : "OpenRouter"} above, or switch provider to "Local (Ollama via server)". You can also click <strong>Assemble Prompt</strong> and paste it into any chat LLM manually.</div>`;
       return;
     }
 

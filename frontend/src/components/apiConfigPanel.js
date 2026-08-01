@@ -16,12 +16,8 @@ export function mountApiConfigPanel(container) {
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">AI API Setup</h2>
-        <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer">
-          <input type="checkbox" id="useApi" class="rounded text-indigo-600 focus:ring-indigo-500">
-          <span>Call AI API directly</span>
-        </label>
       </div>
-      <div id="apiFields" class="space-y-3 opacity-50 pointer-events-none transition-opacity">
+      <div class="space-y-3">
         <div>
           <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">AI Provider</label>
           <select id="provider" class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
@@ -30,10 +26,10 @@ export function mountApiConfigPanel(container) {
             <option value="openrouter">OpenRouter</option>
           </select>
         </div>
-        <div>
+        <div id="apiKeyField" class="opacity-50 pointer-events-none transition-opacity">
           <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">AI API Key</label>
           <input type="password" id="apiKey" placeholder="sk-..." class="w-full rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
-          <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Key is only stored in page memory. Never persisted. Not needed for Local provider.</p>
+          <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Key is only stored in page memory. Never persisted. Not needed for — and disabled for — the Local provider; enables automatically for OpenAI/OpenRouter.</p>
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
@@ -66,8 +62,7 @@ export function mountApiConfigPanel(container) {
     </div>
   `;
 
-  const useApiCheckbox = container.querySelector("#useApi");
-  const apiFields = container.querySelector("#apiFields");
+  const apiKeyField = container.querySelector("#apiKeyField");
   const providerSelect = container.querySelector("#provider");
   const apiKeyInput = container.querySelector("#apiKey");
   const modelInput = container.querySelector("#model");
@@ -129,19 +124,19 @@ export function mountApiConfigPanel(container) {
       "text-[11px] text-green-600 dark:text-green-400 mt-1 h-4";
   }
 
-  function syncApiFieldsState() {
-    const on = useApiCheckbox.checked;
-    apiFields.classList.toggle("opacity-50", !on);
-    apiFields.classList.toggle("pointer-events-none", !on);
-    // Auto-check Ollama when enabling API fields with local provider
-    if (on && providerSelect.value === "local") {
-      refreshOllamaModels();
-    }
+  // The API Key field is only relevant for cloud providers — Local/Ollama
+  // never uses it, since generation there goes through tubelens_server.py
+  // instead of straight from the browser. Rather than a separate "call API
+  // directly" toggle, the field just tracks the provider directly: enabled
+  // whenever a cloud provider is selected, disabled for Local.
+  function syncApiKeyFieldState() {
+    const needsKey = providerSelect.value !== "local";
+    apiKeyField.classList.toggle("opacity-50", !needsKey);
+    apiKeyField.classList.toggle("pointer-events-none", !needsKey);
   }
 
-  useApiCheckbox.addEventListener("change", syncApiFieldsState);
-
   providerSelect.addEventListener("change", (e) => {
+    syncApiKeyFieldState();
     if (e.target.value === "local") {
       refreshOllamaModels();
     } else {
@@ -159,15 +154,19 @@ export function mountApiConfigPanel(container) {
     notifyLocalServerToggle(e.target.checked);
   });
 
-  // Sync once on load: browsers restore checkbox state on reload without
-  // firing 'change', which otherwise leaves the fields visually disabled.
-  syncApiFieldsState();
+  // Sync once on load: browsers restore <select> state on reload without
+  // firing 'change', which otherwise leaves the API Key field's
+  // enabled/disabled state out of sync with the restored provider.
+  syncApiKeyFieldState();
+  // Check Ollama on load whenever the default/selected provider is Local.
+  if (providerSelect.value === "local") {
+    refreshOllamaModels();
+  }
   loadConfig().then((ytKey) => {
     if (ytKey) ytApiKeyInput.value = ytKey;
   });
 
   return {
-    isUsingApi: () => useApiCheckbox.checked,
     getProvider: () => providerSelect.value,
     getApiKey: () => apiKeyInput.value.trim(),
     getModel: () => modelInput.value.trim(),

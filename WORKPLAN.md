@@ -318,3 +318,79 @@ assert computed color directly — the fix is verified by matching Tailwind's
 documented/compiled selector semantics, not by pixel-checking in this
 harness. Visual confirmation of white report text in dark mode is still
 worth a manual look in a real browser.)
+
+## Task 14 — Decouple "Call AI API directly" from Local/Ollama fields (2026-08-01)
+
+User asked whether it's a mistake that "Call AI API directly" seemed
+necessary to check even when using the Local (Ollama) provider. It was: a
+genuine inconsistency between `outputPanel.js`'s stated intent and
+`apiConfigPanel.js`'s actual behavior.
+
+`outputPanel.js`'s `generateReport()` has always had an explicit comment and
+guard for this: `if (!useApi && provider !== "local") { ...; return; }` —
+i.e. Local is never gated behind the checkbox, by design. But
+`apiConfigPanel.js` wrapped the **entire** `#apiFields` block — AI Provider
+select, Model input/select, and the Ollama status line — in
+`opacity-50 pointer-events-none` whenever the checkbox was unchecked. So in
+practice: with the checkbox off (its default state), the user couldn't
+change the Model field if their installed Ollama model didn't match the
+hardcoded default (`qwen2.5:14b`), couldn't see Ollama connection status,
+and the whole card looked disabled — even though the backend code path for
+Local never actually depended on the checkbox. The panel just didn't honor
+its own documented intent.
+
+**Do (done):** In `frontend/src/components/apiConfigPanel.js`:
+- Split the old single `#apiFields` wrapper into two: the AI Provider select
+  and Model field are now always interactive; only the new `#apiKeyField`
+  (just the API Key input) is gated by the checkbox, since that's the only
+  field that's actually about sending a key straight from the browser to a
+  cloud provider.
+- `refreshOllamaModels()` (the live Ollama status + installed-model list
+  check) now also runs unconditionally on initial mount whenever the
+  provider is `"local"`, instead of only when the checkbox was checked.
+  Switching the provider dropdown to `"local"` already triggered this; now
+  the initial page load does too.
+- Updated the API Key field's help text to clarify it "only applies when
+  'Call AI API directly' is checked."
+
+**Accept:** Rebuilt (`npm run build`) clean. Re-ran the jsdom smoke-test
+harness: confirmed `/ollama/models` (and its direct-Ollama fallback) now
+fire on initial mount before any checkbox interaction, and the full flow —
+fetch → assemble → **generate via Local provider** → copy — completes
+successfully with the "Call AI API directly" checkbox never checked at any
+point in the run.
+
+## Task 15 — Remove "Call AI API directly" checkbox entirely (2026-08-01)
+
+Follow-up to Task 14. User asked: instead of a checkbox that only gated the
+API Key field (and even then, imperfectly — see Task 14), why not just
+enable that field automatically based on which provider is selected? Simpler
+mental model: Local never needs a key, cloud providers always do, so the
+field's state should just follow the provider directly.
+
+**Do (done):**
+- `frontend/src/components/apiConfigPanel.js`: removed the `#useApi`
+  checkbox and its label from the markup entirely. `syncApiKeyFieldState()`
+  now reads `providerSelect.value !== "local"` instead of a checkbox, and
+  runs on the provider `<select>`'s `change` event (previously only ran on
+  the checkbox's `change` event). Removed `isUsingApi` from the panel's
+  returned API — nothing needs it anymore.
+- `frontend/src/components/outputPanel.js`: `generateReport()` no longer
+  reads `isUsingApi()`. Deleted the "Prompt Ready — you chose not to use a
+  key" fallback branch entirely: it was existing only to serve people who
+  wanted a copy-the-prompt-manually flow via an unchecked checkbox +
+  Generate Report, which was always redundant with the separate **Assemble
+  Prompt** button that already does exactly that for any provider. The
+  remaining "no API key" error message for cloud providers now names the
+  specific provider and points at both alternatives (switch to Local, or
+  use Assemble Prompt).
+- Updated the API Key field's help text, `frontend/src/components/
+  howToPanel.js`, and `README.md` to describe the field as auto-enabling
+  with provider selection instead of referencing a checkbox.
+
+**Accept:** Rebuilt (`npm run build`) clean. Extended the jsdom smoke-test
+harness to confirm: `#apiKeyField` is disabled at load (default provider
+Local), enables when switching to `openai`, disables again when switching
+back to `local`, and `#useApi` no longer exists in the DOM at all.
+Generating a report with provider `openai` and no key set produces the new
+named-provider error message without throwing.

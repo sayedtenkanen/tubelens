@@ -3,6 +3,8 @@ name = "ytube-summarizer"
 version = "0.1.0"
 description = "YouTube video summarizer with local LLM support"
 readme = "README.md"
+license = "MIT"
+authors = [{ name = "S Tenkanen" }]
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.139.2",
