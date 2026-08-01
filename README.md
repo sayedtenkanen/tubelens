@@ -1,5 +1,10 @@
 # TubeLens — Personal YouTube Deep-Summarizer
 
+[![CI](https://github.com/sayedtenkanen/tubelens/actions/workflows/ci.yml/badge.svg)](https://github.com/sayedtenkanen/tubelens/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.12%2B-blue)
+![Node](https://img.shields.io/badge/node-18%2B-green)
+
 Turn a YouTube video into a structured markdown report: summary, key takeaways, chapter-by-chapter breakdown, resources mentioned, and the best of the comment section (corrections, added resources, unanswered questions). Runs entirely on your machine; report generation defaults to a local Ollama model, so there are no API costs. If you don't have Ollama installed or running, switch the provider to OpenAI or OpenRouter in the UI and bring your own API key instead.
 
 ## How it works

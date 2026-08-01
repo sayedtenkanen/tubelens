@@ -72,6 +72,11 @@ export async function generateChunked(
 
 ## TRANSCRIPT PART ${i + 1}/${chunks.length}
 ${chunks[i]}`;
+    // videoId/videoTitle intentionally omitted here: this is an
+    // intermediate per-part note, not the final report, so it shouldn't
+    // trigger the server's summaries/ save. The reduce-stage call below
+    // passes both and is what actually gets saved. (Server logs
+    // `video_id=None` for these map calls — expected, not a bug.)
     const d = await callGenerate(systemPrompt, mapPrompt, model);
     notes.push(`### Notes from part ${i + 1}/${chunks.length}\n${d.report}`);
   }
