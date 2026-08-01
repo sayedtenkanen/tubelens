@@ -12,8 +12,15 @@ export function mountHeader(container) {
   `;
 
   container.querySelector("#darkModeToggle").addEventListener("click", function () {
-    document.body.classList.toggle("dark");
-    this.textContent = document.body.classList.contains("dark")
+    // Toggle on <html>, not <body>: Tailwind compiles `dark:*` to
+    // `.dark\:text-white:is(.dark *)`, which requires .dark on an ANCESTOR
+    // of the element — an element is never its own descendant, so body's
+    // own dark:bg-gray-900/dark:text-white classes would never match if
+    // .dark were toggled on body itself. That's also why plain <p>/<li>
+    // markdown text (which has no color of its own and just inherits from
+    // body) stayed dark-on-dark: body's own "switch to white" never fired.
+    document.documentElement.classList.toggle("dark");
+    this.textContent = document.documentElement.classList.contains("dark")
       ? "☀️ Light Mode"
       : "🌙 Dark Mode";
   });

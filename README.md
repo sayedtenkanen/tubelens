@@ -100,4 +100,6 @@ Surfaced during the frontend/ refactor (Aug 2026), carried over unchanged from t
 
 - **`outputPanel.js` `switchTab()`** class strings (`TAB_ACTIVE`/`TAB_INACTIVE`) don't include `dark:` variants, so the tab buttons lose their dark-mode styling the first time you switch tabs (the initial markup has the right dark classes; the JS-driven class swap doesn't).
 
+~~Final Report text stayed black in dark mode~~ — fixed: the dark mode toggle now sets `.dark` on `<html>` instead of `<body>`. This was a regression introduced by the refactor, not a pre-existing issue — see `WORKPLAN.md` Task 13 for the root cause (a self-referential Tailwind `dark:` selector) and why the old single-file HTML didn't have it (a fallback rule that happened to compensate, removed during the refactor on a mistaken assumption).
+
 ~~`apiConfigPanel.js` `loadConfig()` wrote the server's `yt_api_key` into the wrong field~~ — fixed: it now populates `ytApiKey`, and the field's help text notes it's auto-filled from `.env`'s `YT_API_KEY` (editable to override per-request).

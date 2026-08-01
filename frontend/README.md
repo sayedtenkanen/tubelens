@@ -89,5 +89,17 @@ API key into the AI-provider **API Key** field (`#apiKey`) instead of the
 `ytApiKeyInput`, and the field's help text notes it's auto-filled from
 `.env`'s `YT_API_KEY`.
 
+`header.js` used to toggle dark mode on `document.body`. Tailwind's
+`dark:*` utilities compile to `.dark\:text-white:is(.dark *)` — the element
+must be a *descendant* of `.dark`, and an element is never its own
+descendant, so body's own `dark:bg-gray-900`/`dark:text-white` classes never
+applied to itself. Everything nested inside body was fine (genuine
+descendant relationship); anything that just *inherits* color from body —
+like the raw `<p>`/`<li>` tags in `.markdown-body` (no color rule of their
+own) — silently stayed on body's light-mode color. Fixed: toggle
+`document.documentElement.classList` (`<html>`) instead, which is also
+Tailwind's own recommended pattern. If you add more dark-mode-dependent
+inherited-color CSS, toggle against `<html>`, not a component root.
+
 See the root `README.md` "Known issues" section and `WORKPLAN.md` for the
 fuller history.

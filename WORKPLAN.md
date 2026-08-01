@@ -267,3 +267,54 @@ empty. Rebuilt (`npm run build`) clean.
 
 **Not done as part of this task** (flagged, not silently fixed): Task 11's
 bug 2 (dark-mode tab classes) is still open.
+
+## Task 13 — Fix dark-mode text color regression in Final Report (2026-08-01)
+
+User reported: report text stays black in dark mode. Root cause was a
+**regression introduced by the Task 11 refactor**, not a pre-existing bug.
+
+`header.js`'s dark mode toggle does
+`document.body.classList.toggle("dark")` — same as the original single-file
+HTML. With Tailwind's `darkMode: 'class'`, `dark:*` utilities compile to
+`.dark\:text-white:is(.dark *)`: the element must be a *descendant* of
+`.dark`, and an element is never its own descendant. So `<body
+class="... dark:bg-gray-900 dark:text-white">` never actually applies its
+own `dark:` utilities to itself — only elements nested inside body correctly
+inherit the ancestor-descendant relationship. Confirmed directly in the
+compiled CSS: `.dark\:text-white:is(.dark *){color:rgb(255 255
+255/var(--tw-text-opacity,1))}`.
+
+This didn't matter for the card panels (`bg-white dark:bg-gray-800`, etc.) —
+they're descendants of body and their own `dark:` classes apply fine. It did
+matter for `.markdown-body p`/`li` in the AI-generated report: those have no
+color of their own (see `frontend/src/style.css`) and just inherit from
+body, which itself silently never switched to white.
+
+The **original** single-file HTML masked this exact same root-cause bug with
+a hand-written non-Tailwind fallback rule: `.dark body, .dark #app {
+background-color: #111827; color: #ffffff; }`. The `.dark body` half never
+matched either (same self-reference problem) — but `.dark #app` did, because
+`#app` is a genuine descendant div of body, and its explicit
+`color: #ffffff` cascaded down to the report text via normal CSS
+inheritance. Task 11 removed that fallback block on the reasoning that "real
+Tailwind doesn't need a CDN workaround" — true for every *other* dark:
+utility, but wrong here: the bug was never about CDN vs. build-time Tailwind,
+it was the self-referential `.dark`-on-body toggle. Removing the fallback
+took away the thing that happened to compensate for it.
+
+**Do (done):** In `frontend/src/components/header.js`, toggle
+`document.documentElement.classList` (i.e. `<html>`) instead of
+`document.body.classList`. This is also Tailwind's own recommended
+convention. With `.dark` on `<html>`, `<body>` becomes a real descendant and
+its own `dark:bg-gray-900`/`dark:text-white` classes apply correctly, which
+fixes the report text color via normal inheritance — no markdown-specific
+CSS or `#app`-targeted rule needed.
+
+**Accept:** Rebuilt (`npm run build`) clean. Verified via the jsdom
+smoke-test harness that the `dark` class lands on `document.documentElement`
+after toggling and the rest of the flow (fetch → assemble → generate →
+copy) is unaffected. (jsdom's CSS cascade engine isn't reliable enough to
+assert computed color directly — the fix is verified by matching Tailwind's
+documented/compiled selector semantics, not by pixel-checking in this
+harness. Visual confirmation of white report text in dark mode is still
+worth a manual look in a real browser.)
