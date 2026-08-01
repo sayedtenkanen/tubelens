@@ -1,5 +1,7 @@
 # TubeLens — Implementation Work Plan
 
+> **Historical record.** The tasks below describe the project's original build-out and were completed against the single-file `tubelens-personal.html` frontend. That file was later split into a componentized `frontend/` (Vite + vanilla JS) project — see `frontend/src/components/` and `frontend/src/lib/`, and the "How it works" section of `README.md` for the current structure. Left as-is for history; don't use it as a guide to the current file layout.
+
 Instructions for the implementing model: Execute the tasks below **in order**. Make only the changes specified. Do not refactor unrelated code, rename variables, reformat files, or add dependencies beyond those listed. After each task, run its acceptance check before moving on.
 
 ## Repo context
@@ -192,3 +194,76 @@ Run through this checklist and report results:
 6. `grep -rn "tubelens-server\|get_transcript\|claude-3-5\|anthropic" *.py *.html README.md` → only acceptable hits (none expected).
 
 Do not mark the work complete until every item passes.
+
+---
+
+## Task 11 — Frontend refactor: single-file HTML → componentized Vite project (2026-08-01)
+
+`tubelens-personal.html` (1,374 lines: markup + a `<style>` block + one flat
+`<script>` with ~30 top-level functions) was split into `frontend/`, a Vite +
+vanilla-JS project with a real Tailwind build (PostCSS, not the CDN script)
+and one module/component per concern. `tubelens-personal.html` was deleted;
+`tubelens_server.py` now mounts `frontend/dist` at `/` via
+`StaticFiles(html=True)`, registered after all API routes so it never shadows
+them.
+
+**Layout:** see `frontend/README.md` for the full breakdown
+(`src/components/*.js` — one per UI panel, each owns its markup + listeners;
+`src/lib/*.js` — pure logic, no DOM access; `src/main.js` — wires components
+together via dependency injection, no framework/event bus).
+
+**Behavior parity:** this was a structural port, not a rewrite — no feature
+changes intended. Verified via:
+- A full build (`npm run build`) with zero warnings.
+- An end-to-end functional smoke test (jsdom + mocked `fetch`) covering
+  mounting, dark mode, provider switching, the local-server toggle, video
+  fetch → transcript/comments/chapter population, prompt assembly, report
+  generation (including the map-reduce chunked path), and copy-to-clipboard.
+- The live FastAPI static mount, curl-verified against a real build.
+- The existing `test_tubelens.py` suite (unaffected — it only exercises
+  `tubelens_server.py`, which only gained an import, a docstring update, and
+  the static-mount block).
+
+**Two pre-existing bugs surfaced during the port, deliberately left
+unfixed** at the time (out of scope for a structural refactor — see root
+`README.md` "Known issues"):
+1. ~~`loadConfig()` (now in `frontend/src/components/apiConfigPanel.js`)
+   wrote the server's `yt_api_key` into the AI-provider API-key field instead
+   of the YouTube Data API key field.~~ **Fixed 2026-08-01** (see Task 12
+   below) — it was purely cosmetic in effect (`/fetch` already falls back to
+   `.env`'s `YT_API_KEY` server-side regardless of what the UI sends), but
+   it meant the UI never showed that the key was already active.
+2. `switchTab()` (now in `frontend/src/components/outputPanel.js`)'s active/
+   inactive class strings lack `dark:` variants, so tab styling loses its
+   dark-mode look after the first tab switch. Still open.
+
+**New dev workflow:** `cd frontend && npm install && npm run build`, then
+`uv run python tubelens_server.py` and open `http://localhost:8000` (was:
+double-click `tubelens-personal.html`). `cd frontend && npm run dev` gives a
+hot-reload dev server at `localhost:5173` against the same backend.
+
+**CI** (`.github/workflows/ci.yml`) now also sets up Node and runs
+`npm ci && npm run build` in `frontend/`, so a broken frontend build fails
+the pipeline the same way a broken Python import would.
+
+## Task 12 — Fix `loadConfig()` yt-api-key mix-up (2026-08-01)
+
+User asked why the "YouTube Data API Key (optional)" field exists at all
+given `.env` already feeds `YT_API_KEY` server-side. Answer: `/fetch` already
+falls back to `.env` when the field is blank, so the field is genuinely
+optional whenever `.env` is set — it exists for people without a `.env`, or
+to override the key for a single request. The confusion was caused by Task
+11's bug 1: `loadConfig()` wrote the `.env` key into the wrong input, so the
+field never visibly reflected that a key was already active.
+
+**Do (done):** In `frontend/src/components/apiConfigPanel.js`, changed
+`loadConfig().then((ytKey) => { if (ytKey) apiKeyInput.value = ytKey; })` to
+set `ytApiKeyInput.value` instead. Updated the field's help text to say it's
+auto-filled from `.env`'s `YT_API_KEY` and can be overridden per-request.
+
+**Accept:** Verified via the jsdom smoke-test harness (see Task 11) with a
+mocked `/config` response — `#ytApiKey` receives the key, `#apiKey` stays
+empty. Rebuilt (`npm run build`) clean.
+
+**Not done as part of this task** (flagged, not silently fixed): Task 11's
+bug 2 (dark-mode tab classes) is still open.

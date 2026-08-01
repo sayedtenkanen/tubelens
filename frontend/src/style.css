@@ -1,0 +1,141 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: "Inter", sans-serif;
+}
+
+.timestamp-badge {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.loader {
+  border: 3px solid #e5e7eb;
+  border-top: 3px solid #4f46e5;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+.dark .loader {
+  border-color: #374151;
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+textarea {
+  min-height: 120px;
+}
+
+.markdown-body h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: #111827;
+}
+.dark .markdown-body h1 {
+  color: #f9fafb;
+}
+.markdown-body h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.25rem;
+}
+.dark .markdown-body h2 {
+  color: #e5e7eb;
+  border-color: #374151;
+}
+.markdown-body h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.4rem;
+  color: #374151;
+}
+.dark .markdown-body h3 {
+  color: #d1d5db;
+}
+.markdown-body ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-body li {
+  margin-bottom: 0.35rem;
+}
+.markdown-body blockquote {
+  border-left: 4px solid #4f46e5;
+  padding-left: 1rem;
+  color: #4b5563;
+  font-style: italic;
+  background: #eef2ff;
+  border-radius: 0 0.375rem 0.375rem 0;
+  padding: 0.5rem 1rem;
+  margin: 0.75rem 0;
+}
+.dark .markdown-body blockquote {
+  color: #c7d2fe;
+  background: #1e1b4b;
+}
+.markdown-body code {
+  background: #f3f4f6;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+}
+.dark .markdown-body code {
+  background: #374151;
+  color: #f9fafb;
+}
+.markdown-body pre {
+  background: #1f2937;
+  color: #f9fafb;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+.markdown-body a {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+.dark .markdown-body a {
+  color: #a5b4fc;
+}
+.markdown-body hr {
+  margin: 1.5rem 0;
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+}
+.dark .markdown-body hr {
+  border-color: #374151;
+}
+.markdown-body p {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+#darkModeToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 4px;
+}
+#darkModeToggle:hover {
+  text-decoration: underline;
+}

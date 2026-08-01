@@ -2,17 +2,20 @@
 TubeLens Local Server
 
 Local FastAPI backend for the TubeLens personal YouTube summarizer
-(frontend: tubelens-personal.html).
+(frontend: frontend/ — a Vite project; run `npm run build` there before
+starting this server so frontend/dist exists).
 
 Endpoints:
     GET  /fetch     Fetch metadata, transcript, and comments for a video.
     POST /generate  Proxy an LLM call to a local Ollama instance and save the report.
+    GET  /          Serves the built frontend (frontend/dist), if present.
 
 Transcripts need no API key (youtube-transcript-api >= 1.0). Full descriptions
 and comments require a free YouTube Data API v3 key. Fetches are cached in
 cache/; generated reports are saved to summaries/.
 
 Setup:  uv sync            (or: pip install fastapi uvicorn "youtube-transcript-api>=1.0" requests)
+        cd frontend && npm install && npm run build && cd ..
 Run:    uv run python tubelens_server.py
 CLI:    uv run python tubelens_server.py --url "YOUTUBE_URL" [--yt-api-key KEY]
 """
@@ -31,6 +34,7 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from youtube_transcript_api import (
     NoTranscriptFound,
     TranscriptsDisabled,
@@ -49,7 +53,6 @@ load_dotenv()
 app = FastAPI(title="TubeLens Proxy")
 
 
-# Serve the frontend HTML
 @app.get("/config")
 def get_config():
     """Return current configuration from environment variables."""
@@ -420,6 +423,20 @@ def generate(payload: dict):
         log.info("generate: report saved to %s", saved_path)
 
     return {"report": text, "saved_to": saved_path, "warning": warning, "stats": stats}
+
+
+# Serve the built frontend (frontend/dist) at "/", if it's been built.
+# Registered last so it never shadows the API routes above — Starlette
+# matches routes in declaration order and only falls through to this
+# catch-all mount for paths none of them handled.
+FRONTEND_DIST = pathlib.Path(__file__).parent / "frontend" / "dist"
+if FRONTEND_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
+else:
+    log.warning(
+        "frontend/dist not found — run `cd frontend && npm install && npm run build` "
+        "to serve the UI from this server."
+    )
 
 
 # ── CLI mode (no server) ────────────────────────────────────────────────────

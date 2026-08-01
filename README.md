@@ -5,15 +5,15 @@ Turn a YouTube video into a structured markdown report: summary, key takeaways, 
 ## How it works
 
 ```
-tubelens-personal.html  ──►  tubelens_server.py  ──►  YouTube (transcript, metadata, comments)
-      (browser UI)               (localhost:8000)  ──►  Ollama (localhost:11434, report generation)
+frontend/ (Vite build)  ──►  tubelens_server.py  ──►  YouTube (transcript, metadata, comments)
+   (browser UI)                (localhost:8000)  ──►  Ollama (localhost:11434, report generation)
 ```
 
-Two files do the work: `tubelens_server.py` (FastAPI backend) and `tubelens-personal.html` (single-file frontend — just open it in a browser).
+Two parts do the work: `tubelens_server.py` (FastAPI backend) and `frontend/` (a small Vite + vanilla-JS project, organized into one module/component per concern — see `frontend/src/components/` and `frontend/src/lib/`). The backend serves the built frontend directly, so once it's built there's nothing else to open by hand.
 
 ## One-time setup
 
-Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/) (or plain pip).
+Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/) (or plain pip), plus Node.js 18+ for the frontend build.
 
 1. Install Python dependencies:
 
@@ -21,13 +21,19 @@ Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/) (or plain pip).
    uv sync    # or: pip install fastapi uvicorn "youtube-transcript-api>=1.0" requests
    ```
 
-2. Install [Ollama](https://ollama.com) and pull a model:
+2. Build the frontend:
+
+   ```bash
+   cd frontend && npm install && npm run build && cd ..
+   ```
+
+3. Install [Ollama](https://ollama.com) and pull a model:
 
    ```bash
    ollama pull qwen2.5:14b
    ```
 
-3. Optional but recommended: get a free [YouTube Data API v3 key](https://console.cloud.google.com/apis/library/youtube.googleapis.com). It enables auto-fetched comments and descriptions — the comment analysis is the best part of the tool. Without it you still get title, channel, and transcript; comments can be pasted manually.
+4. Optional but recommended: get a free [YouTube Data API v3 key](https://console.cloud.google.com/apis/library/youtube.googleapis.com). It enables auto-fetched comments and descriptions — the comment analysis is the best part of the tool. Without it you still get title, channel, and transcript; comments can be pasted manually.
 
 ## Using the tool
 
@@ -35,14 +41,16 @@ Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/) (or plain pip).
 2. Start the backend from the project folder:
 
    ```bash
-   uv run python tubelens_server.py    # serves at localhost:8000
+   uv run python tubelens_server.py    # serves the built UI + API at localhost:8000
    ```
 
-3. Open `tubelens-personal.html` in your browser (double-click the file).
+3. Open `http://localhost:8000` in your browser.
 4. Check **"Use local server"** and paste your YouTube API key in the field that appears (if you have one).
 5. Paste a video URL and click **Fetch Info** — title, transcript, and comments fill in automatically.
 6. Click **Generate Report**. Provider defaults to "Local (Ollama via server)", so no AI API key is needed. OpenAI and OpenRouter are available as cloud alternatives (bring your own key).
 7. Read the report in the page; a copy is saved to `summaries/<video_id>-<date>.md`.
+
+**Frontend development:** `cd frontend && npm run dev` starts a Vite dev server with hot reload at `http://localhost:5173` (point it at a running `tubelens_server.py` on port 8000, same as production). Run `npm run build` again whenever you're done editing so `tubelens_server.py` serves the updated build.
 
 Refetching the same video is instant (cached in `cache/`). If a video has no transcript or has comments disabled, an amber note explains what's missing instead of failing silently.
 
@@ -60,7 +68,7 @@ Returns `{video_id, title, channel, description, transcript, comments, errors}`.
 `POST /generate` with `{system, prompt, model, num_ctx?, video_id?}`
 Proxies to Ollama and returns `{report, saved_to, warning, stats}` or `{error}`. `num_ctx` defaults to 32768; the UI auto-sizes it per request (estimated prompt + 8k output headroom, rounded up to 8k steps, capped at 65536 to protect VRAM). Ollama silently truncates prompts beyond its context window, so a `warning` is returned when the prompt gets close, or when Ollama's reported token counts indicate truncation actually happened. Note: models with a 32k native context (e.g. qwen2.5) may degrade beyond it even when `num_ctx` is raised; for long videos prefer a native long-context model such as llama3.1.
 
-**Long videos (map-reduce):** when the assembled prompt won't fit even the capped context window, the UI automatically switches to chunked generation: the transcript is split into ~20k-token parts, each part is summarized into dense notes (map), and a final call combines the notes with chapters and comments into the normal report (reduce). Progress is shown per part, and the report footer notes how many parts were processed. Only the final report is saved to `summaries/`. Tip: to keep a 32k-native model (qwen2.5) inside its comfort zone, lower `NUM_CTX_CAP` to 32768 in `tubelens-personal.html` — chunking will then kick in for anything over ~23k tokens. `stats` carries prompt/completion token counts, duration, and tokens/sec (also shown in the report footer in the UI).
+**Long videos (map-reduce):** when the assembled prompt won't fit even the capped context window, the UI automatically switches to chunked generation: the transcript is split into ~20k-token parts, each part is summarized into dense notes (map), and a final call combines the notes with chapters and comments into the normal report (reduce). Progress is shown per part, and the report footer notes how many parts were processed. Only the final report is saved to `summaries/`. Tip: to keep a 32k-native model (qwen2.5) inside its comfort zone, lower `NUM_CTX_CAP` to 32768 in `frontend/src/lib/generate.js` (then `npm run build` again) — chunking will then kick in for anything over ~23k tokens. `stats` carries prompt/completion token counts, duration, and tokens/sec (also shown in the report footer in the UI).
 
 ## Observability
 
@@ -85,3 +93,11 @@ CI (GitHub Actions, `.github/workflows/ci.yml`) runs the suite on every push and
 - Comments: one page of up to 100 top-level comments, relevance-ordered. No replies.
 - Transcript language: English preferred, falls back to the first available language.
 - Report quality depends on the model. 7–8B models follow the format but miss cross-references (e.g. linking a comment correction to the right video segment); 14B+ recommended.
+
+## Known issues (pre-existing, not yet fixed)
+
+Surfaced during the frontend/ refactor (Aug 2026), carried over unchanged from the old single-file HTML since fixing them wasn't in scope of that pass:
+
+- **`outputPanel.js` `switchTab()`** class strings (`TAB_ACTIVE`/`TAB_INACTIVE`) don't include `dark:` variants, so the tab buttons lose their dark-mode styling the first time you switch tabs (the initial markup has the right dark classes; the JS-driven class swap doesn't).
+
+~~`apiConfigPanel.js` `loadConfig()` wrote the server's `yt_api_key` into the wrong field~~ — fixed: it now populates `ytApiKey`, and the field's help text notes it's auto-filled from `.env`'s `YT_API_KEY` (editable to override per-request).

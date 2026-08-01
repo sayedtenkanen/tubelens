@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TubeLens — Personal Video Summarizer</title>
+  </head>
+  <body class="bg-gray-50 text-gray-800 min-h-screen dark:bg-gray-900 dark:text-white">
+    <div id="app" class="max-w-7xl mx-auto p-4 md:p-8">
+      <!-- Header -->
+      <div id="mount-header"></div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- LEFT COLUMN: Inputs -->
+        <div class="lg:col-span-5 space-y-5">
+          <div id="mount-api-config"></div>
+          <div id="mount-video-source"></div>
+          <div id="mount-transcript"></div>
+          <div id="mount-comments"></div>
+          <div id="mount-actions"></div>
+        </div>
+
+        <!-- RIGHT COLUMN: Output -->
+        <div class="lg:col-span-7 space-y-5">
+          <div id="mount-output"></div>
+          <div id="mount-how-to"></div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
