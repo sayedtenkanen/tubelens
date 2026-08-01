@@ -288,6 +288,19 @@ document.getElementById('useApi').addEventListener('change', syncApiFieldsState)
 // Sync once on load: browsers restore checkbox state on reload without
 // firing 'change', which otherwise leaves the fields visually disabled.
 syncApiFieldsState();
+loadConfig();
+
+async function loadConfig() {
+  try {
+    const res = await fetch('http://localhost:8000/config');
+    const data = await res.json();
+    if (data.yt_api_key) {
+      document.getElementById('apiKey').value = data.yt_api_key;
+    }
+  } catch (e) {
+    console.error('Failed to load config:', e);
+  }
+}
 
 async function checkOllamaAndLoadModels() {
   const modelInput = document.getElementById('model');

@@ -1,17 +1,16 @@
 import json
 import pathlib
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from fastapi.testclient import TestClient
 
 from tubelens_server import (
     app,
     extract_video_id,
-    seconds_to_hms,
     fetch_transcript,
-    get_basic_meta,
     get_api_meta,
     get_comments,
+    seconds_to_hms,
 )
 
 client = TestClient(app)
@@ -19,18 +18,28 @@ client = TestClient(app)
 
 # ── Unit tests: extract_video_id ────────────────────────────────────────────
 
+
 class TestExtractVideoId:
     def test_standard_url(self):
-        assert extract_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        assert (
+            extract_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            == "dQw4w9WgXcQ"
+        )
 
     def test_short_url(self):
         assert extract_video_id("https://youtu.be/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
 
     def test_embed_url(self):
-        assert extract_video_id("https://www.youtube.com/embed/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        assert (
+            extract_video_id("https://www.youtube.com/embed/dQw4w9WgXcQ")
+            == "dQw4w9WgXcQ"
+        )
 
     def test_shorts_url(self):
-        assert extract_video_id("https://www.youtube.com/shorts/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        assert (
+            extract_video_id("https://www.youtube.com/shorts/dQw4w9WgXcQ")
+            == "dQw4w9WgXcQ"
+        )
 
     def test_bare_id(self):
         assert extract_video_id("dQw4w9WgXcQ") == "dQw4w9WgXcQ"
@@ -42,10 +51,14 @@ class TestExtractVideoId:
         assert extract_video_id("") is None
 
     def test_url_with_extra_params(self):
-        assert extract_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=120") == "dQw4w9WgXcQ"
+        assert (
+            extract_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=120")
+            == "dQw4w9WgXcQ"
+        )
 
 
 # ── Unit tests: seconds_to_hms ──────────────────────────────────────────────
+
 
 class TestSecondsToHms:
     def test_seconds_only(self):
@@ -66,6 +79,7 @@ class TestSecondsToHms:
 
 # ── Unit tests: fetch_transcript ────────────────────────────────────────────
 
+
 class TestFetchTranscript:
     @patch("tubelens_server.YouTubeTranscriptApi")
     def test_successful_fetch(self, mock_api_class):
@@ -85,6 +99,7 @@ class TestFetchTranscript:
     @patch("tubelens_server.YouTubeTranscriptApi")
     def test_transcripts_disabled(self, mock_api_class):
         from youtube_transcript_api import TranscriptsDisabled
+
         mock_api = MagicMock()
         mock_api_class.return_value = mock_api
         mock_api.fetch.side_effect = TranscriptsDisabled(video_id="test123")
@@ -92,19 +107,29 @@ class TestFetchTranscript:
         mock_tlist.__iter__ = MagicMock(side_effect=StopIteration)
         mock_api.list.return_value = mock_tlist
 
-        transcript, error = fetch_transcript("test123")
+        _, error = fetch_transcript("test123")
         assert error is not None
         assert "No transcript available" in error
 
 
 # ── Unit tests: get_api_meta ────────────────────────────────────────────────
 
+
 class TestGetApiMeta:
     @patch("tubelens_server.requests.get")
     def test_successful_meta(self, mock_get):
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "items": [{"snippet": {"title": "Test Video", "description": "Desc", "channelTitle": "Channel", "publishedAt": "2024-01-01"}}]
+            "items": [
+                {
+                    "snippet": {
+                        "title": "Test Video",
+                        "description": "Desc",
+                        "channelTitle": "Channel",
+                        "publishedAt": "2024-01-01",
+                    }
+                }
+            ]
         }
         mock_get.return_value = mock_response
 
@@ -121,29 +146,32 @@ class TestGetApiMeta:
         }
         mock_get.return_value = mock_response
 
-        meta, error = get_api_meta("vid123", "bad_key")
+        _, error = get_api_meta("vid123", "bad_key")
         assert error is not None
         assert "Invalid API key" in error
 
 
 # ── Unit tests: get_comments ────────────────────────────────────────────────
 
+
 class TestGetComments:
     @patch("tubelens_server.requests.get")
     def test_successful_comments(self, mock_get):
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "items": [{
-                "snippet": {
-                    "topLevelComment": {
-                        "snippet": {
-                            "textDisplay": "Great video!",
-                            "authorDisplayName": "User1",
-                            "likeCount": 42
+            "items": [
+                {
+                    "snippet": {
+                        "topLevelComment": {
+                            "snippet": {
+                                "textDisplay": "Great video!",
+                                "authorDisplayName": "User1",
+                                "likeCount": 42,
+                            }
                         }
                     }
                 }
-            }]
+            ]
         }
         mock_get.return_value = mock_response
 
@@ -167,6 +195,7 @@ class TestGetComments:
 
 # ── Integration tests: /fetch endpoint ──────────────────────────────────────
 
+
 class TestFetchEndpoint:
     def test_invalid_url(self):
         response = client.get("/fetch?url=not-a-url")
@@ -178,7 +207,9 @@ class TestFetchEndpoint:
     @patch("tubelens_server.get_basic_meta")
     @patch("tubelens_server.get_api_meta")
     @patch("tubelens_server.get_comments")
-    def test_successful_fetch(self, mock_comments, mock_api_meta, mock_meta, mock_transcript):
+    def test_successful_fetch(
+        self, mock_comments, mock_api_meta, mock_meta, mock_transcript
+    ):
         mock_meta.return_value = {"title": "Test", "channel": "Ch"}
         mock_api_meta.return_value = ({}, None)
         mock_transcript.return_value = ("[0:00] Hello", None)
@@ -199,6 +230,7 @@ class TestFetchEndpoint:
 
 # ── Integration tests: /generate endpoint ───────────────────────────────────
 
+
 class TestGenerateEndpoint:
     @patch("tubelens_server.requests.post")
     def test_successful_generation(self, mock_post):
@@ -209,11 +241,14 @@ class TestGenerateEndpoint:
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        response = client.post("/generate", json={
-            "system": "You are helpful.",
-            "prompt": "Summarize this.",
-            "model": "test-model"
-        })
+        response = client.post(
+            "/generate",
+            json={
+                "system": "You are helpful.",
+                "prompt": "Summarize this.",
+                "model": "test-model",
+            },
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["report"] == "Test report"
@@ -221,13 +256,12 @@ class TestGenerateEndpoint:
     @patch("tubelens_server.requests.post")
     def test_ollama_connection_error(self, mock_post):
         import requests as req_lib
+
         mock_post.side_effect = req_lib.ConnectionError()
 
-        response = client.post("/generate", json={
-            "system": "test",
-            "prompt": "test",
-            "model": "test"
-        })
+        response = client.post(
+            "/generate", json={"system": "test", "prompt": "test", "model": "test"}
+        )
         assert response.status_code == 200
         data = response.json()
         assert "error" in data
@@ -242,21 +276,26 @@ class TestGenerateEndpoint:
         mock_response.raise_for_status = MagicMock()
         mock_post.return_value = mock_response
 
-        response = client.post("/generate", json={
-            "system": "sys",
-            "prompt": "prompt",
-            "model": "m",
-            "video_id": "test123"
-        })
+        response = client.post(
+            "/generate",
+            json={
+                "system": "sys",
+                "prompt": "prompt",
+                "model": "m",
+                "video_id": "test123",
+            },
+        )
         data = response.json()
         assert data["saved_to"] is not None
 
 
 # ── Cache tests ─────────────────────────────────────────────────────────────
 
+
 class TestCache:
     def test_cache_created_on_fetch(self, tmp_path):
         from tubelens_server import CACHE_DIR
+
         cache_file = CACHE_DIR / "test123.json"
         if cache_file.exists():
             cache_file.unlink()
@@ -264,6 +303,7 @@ class TestCache:
 
     def test_cache_file_is_json(self, tmp_path):
         from tubelens_server import CACHE_DIR
+
         cache_file = CACHE_DIR / "dQw4w9WgXcQ.json"
         if cache_file.exists():
             data = json.loads(cache_file.read_text())

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 TubeLens Local Server
 
@@ -17,18 +16,26 @@ Setup:  uv sync            (or: pip install fastapi uvicorn "youtube-transcript-
 Run:    uv run python tubelens_server.py
 CLI:    uv run python tubelens_server.py --url "YOUTUBE_URL" [--yt-api-key KEY]
 """
+
 import argparse
+import datetime
 import json
 import logging
+import os
 import pathlib
-import datetime
 import re
 import time
+
 import requests
-from fastapi import FastAPI, Body
-from fastapi.middleware.cors import CORSMiddleware
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from youtube_transcript_api import (
+    NoTranscriptFound,
+    TranscriptsDisabled,
+    YouTubeTranscriptApi,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,14 +44,20 @@ logging.basicConfig(
 )
 log = logging.getLogger("tubelens")
 
+load_dotenv()
+
 app = FastAPI(title="TubeLens Proxy")
 
+
 # Serve the frontend HTML
-@app.get("/")
-def serve_frontend():
-    from fastapi.responses import FileResponse
-    html_path = pathlib.Path(__file__).parent / "tubelens-personal.html"
-    return FileResponse(str(html_path), media_type="text/html")
+@app.get("/config")
+def get_config():
+    """Return current configuration from environment variables."""
+    import os
+    return {
+        "yt_api_key": os.environ.get("YT_API_KEY", "")
+    }
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -69,7 +82,7 @@ def extract_video_id(url: str) -> str | None:
         m = re.search(p, url)
         if m:
             return m.group(1)
-    if re.match(r'^[0-9A-Za-z_-]{11}$', url):
+    if re.match(r"^[0-9A-Za-z_-]{11}$", url):
         return url
     return None
 
@@ -103,9 +116,9 @@ def fetch_transcript(video_id: str) -> tuple[str, str | None]:
             fetched = first.fetch()
             lines = [f"[{seconds_to_hms(s.start)}] {s.text}" for s in fetched.snippets]
             return "\n".join(lines), None
-        except Exception as e:
+        except Exception as e:    # noqa: BLE001 # catch all exceptions
             return "", f"No transcript available: {e}"
-    except Exception as e:
+    except Exception as e:    # noqa: BLE001 # catch all exceptions
         return "", f"Transcript fetch failed: {e}"
 
 
@@ -120,8 +133,8 @@ def get_basic_meta(video_id: str) -> dict:
         if r.status_code == 200:
             d = r.json()
             return {"title": d.get("title", ""), "channel": d.get("author_name", "")}
-    except Exception:
-        pass
+    except Exception as e:    # noqa: BLE001 # catch all exceptions
+        log.debug("get_basic_meta failed: %s", e)
     return {"title": "", "channel": ""}
 
 
@@ -147,12 +160,14 @@ def get_api_meta(video_id: str, api_key: str) -> tuple[dict, str | None]:
                 "channel": s.get("channelTitle", ""),
                 "publishedAt": s.get("publishedAt", ""),
             }, None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 # catch all exceptions
         return {}, str(e)
     return {}, None
 
 
-def get_comments(video_id: str, api_key: str, max_results: int = 100) -> tuple[list[str], str | None]:
+def get_comments(
+    video_id: str, api_key: str, max_results: int = 100
+) -> tuple[list[str], str | None]:
     """Get top comments (relevance order, single page, max 100) via the
     YouTube Data API v3. Each comment is formatted "[N likes] @author: text"
     so like counts survive into the LLM prompt.
@@ -179,11 +194,11 @@ def get_comments(video_id: str, api_key: str, max_results: int = 100) -> tuple[l
             author = snippet.get("authorDisplayName", "Unknown")
             likes = snippet.get("likeCount", 0)
             # strip HTML tags lightly
-            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r"<[^>]+>", "", text)
             if text.strip():
                 out.append(f"[{likes} likes] @{author}: {text.strip()}")
         return out, None
-    except Exception as e:
+    except Exception as e:    # noqa: BLE001 # catch all exceptions
         return [], str(e)
 
 
@@ -215,15 +230,19 @@ def fetch_video(url: str, yt_api_key: str | None = None, refresh: bool = False):
                 # Don't serve a comment-less cached entry when a key is now provided
                 if not (yt_api_key and not cached.get("comments")):
                     return cached
-            except Exception:
-                pass
+            except Exception as e:    # noqa: BLE001 # catch all exceptions
+                log.warning("Failed to load cache for %s: %s", vid, e)
 
     errors = []
 
     # Metadata
     meta = get_basic_meta(vid)
-    if yt_api_key:
-        api_meta, meta_error = get_api_meta(vid, yt_api_key)
+    
+    # Use provided key, or fallback to environment variable
+    api_key = yt_api_key or os.environ.get("YT_API_KEY")
+    
+    if api_key:
+        api_meta, meta_error = get_api_meta(vid, api_key)
         meta.update(api_meta)
         if meta_error:
             errors.append(f"Metadata: {meta_error}")
@@ -235,7 +254,9 @@ def fetch_video(url: str, yt_api_key: str | None = None, refresh: bool = False):
         errors.append(f"Transcript: {transcript_error}")
 
     # Comments
-    comments, comments_error = get_comments(vid, yt_api_key) if yt_api_key else ([], None)
+    comments, comments_error = (
+        get_comments(vid, api_key) if api_key else ([], None)
+    )
     if comments_error:
         errors.append(f"Comments: {comments_error}")
 
@@ -271,12 +292,12 @@ def ollama_models():
         r = requests.get(f"{OLLAMA_API}/api/tags", timeout=3)
         r.raise_for_status()
         return r.json()
-    except Exception as e:
+    except Exception as e:    # noqa: BLE001 # catch all exceptions
         return {"error": str(e), "models": []}
 
 
 @app.post("/generate")
-def generate(payload: dict = Body(...)):
+def generate(payload: dict):
     """Proxy an LLM call to the local Ollama instance (localhost:11434).
 
     Request JSON:
@@ -296,32 +317,45 @@ def generate(payload: dict = Body(...)):
     """
     model = payload.get("model", "qwen2.5:14b")
     num_ctx = int(payload.get("num_ctx", 32768))
-    approx_tokens = (len(payload.get("system", "")) + len(payload.get("prompt", ""))) // 4
+    approx_tokens = (
+        len(payload.get("system", "")) + len(payload.get("prompt", ""))
+    ) // 4
     warning = None
     if approx_tokens > num_ctx * 0.9:
         warning = f"Prompt ~{approx_tokens} tokens may exceed context window ({num_ctx}). Output may miss content."
 
-    log.info("generate: model=%s num_ctx=%d prompt~%d tokens video_id=%s",
-             model, num_ctx, approx_tokens, payload.get("video_id", "-"))
+    log.info(
+        "generate: model=%s num_ctx=%d prompt~%d tokens video_id=%s",
+        model,
+        num_ctx,
+        approx_tokens,
+        payload.get("video_id", "-"),
+    )
     t0 = time.monotonic()
     try:
-        r = requests.post(OLLAMA_URL, json={
-            "model": model,
-            "messages": [
-                {"role": "system", "content": payload.get("system", "")},
-                {"role": "user", "content": payload.get("prompt", "")},
-            ],
-            "temperature": 0.4,
-            "max_tokens": 8192,
-            "options": {"num_ctx": num_ctx},
-        }, timeout=600)
+        r = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": payload.get("system", "")},
+                    {"role": "user", "content": payload.get("prompt", "")},
+                ],
+                "temperature": 0.4,
+                "max_tokens": 8192,
+                "options": {"num_ctx": num_ctx},
+            },
+            timeout=600,
+        )
         r.raise_for_status()
         body = r.json()
         text = body["choices"][0]["message"]["content"]
     except requests.ConnectionError:
         log.error("generate: cannot reach Ollama at %s", OLLAMA_URL)
-        return {"error": "Cannot reach Ollama at localhost:11434. Is `ollama serve` running?"}
-    except Exception as e:
+        return {
+            "error": "Cannot reach Ollama at localhost:11434. Is `ollama serve` running?"
+        }
+    except Exception as e:  # noqa: BLE001 # catch all exceptions
         log.error("generate: failed after %.1fs: %s", time.monotonic() - t0, e)
         return {"error": f"Generation failed: {e}"}
 
@@ -336,16 +370,26 @@ def generate(payload: dict = Body(...)):
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "duration_s": round(duration, 1),
-            "tokens_per_s": round(completion_tokens / duration, 1) if duration > 0 else None,
+            "tokens_per_s": round(completion_tokens / duration, 1)
+            if duration > 0
+            else None,
         }
-        log.info("generate: done in %.1fs — prompt=%d completion=%d tokens (%.1f tok/s)",
-                 duration, prompt_tokens, completion_tokens,
-                 completion_tokens / duration if duration > 0 else 0)
+        log.info(
+            "generate: done in %.1fs — prompt=%d completion=%d tokens (%.1f tok/s)",
+            duration,
+            prompt_tokens,
+            completion_tokens,
+            completion_tokens / duration if duration > 0 else 0,
+        )
         # Real truncation check: Ollama reports post-truncation prompt size.
         # If it's near num_ctx, or far below our char-based estimate, input was cut.
-        if prompt_tokens >= num_ctx * 0.95 or (approx_tokens > 0 and prompt_tokens < approx_tokens * 0.7):
-            warning = (f"Ollama processed {prompt_tokens} prompt tokens vs ~{approx_tokens} sent "
-                       f"(num_ctx={num_ctx}) — input was likely truncated. Raise num_ctx.")
+        if prompt_tokens >= num_ctx * 0.95 or (
+            approx_tokens > 0 and prompt_tokens < approx_tokens * 0.7
+        ):
+            warning = (
+                f"Ollama processed {prompt_tokens} prompt tokens vs ~{approx_tokens} sent "
+                f"(num_ctx={num_ctx}) — input was likely truncated. Raise num_ctx."
+            )
             log.warning("generate: %s", warning)
     else:
         log.info("generate: done in %.1fs (no usage stats reported)", duration)
@@ -354,7 +398,9 @@ def generate(payload: dict = Body(...)):
     vid = payload.get("video_id")
     if vid:
         SUMMARIES_DIR.mkdir(exist_ok=True)
-        saved_path = str(SUMMARIES_DIR / f"{vid}-{datetime.date.today()}.md")
+        saved_path = str(
+            SUMMARIES_DIR / f"{vid}-{datetime.datetime.now(datetime.UTC).date()}.md"
+        )
         pathlib.Path(saved_path).write_text(text, encoding="utf-8")
         log.info("generate: report saved to %s", saved_path)
 
@@ -368,30 +414,36 @@ def cli_mode(url: str, yt_api_key: str | None):
     into other tools."""
     vid = extract_video_id(url)
     if not vid:
-        print("Video ID could not be extracted from the URL. Please provide a valid YouTube URL or video ID.")
+        print(
+            "Video ID could not be extracted from the URL. Please provide a valid YouTube URL or video ID."
+        )
         return
+
+    # Use provided key, or fallback to environment variable
+    api_key = yt_api_key or os.environ.get("YT_API_KEY")
+    
     meta = get_basic_meta(vid)
-    if yt_api_key:
-        api_meta, _ = get_api_meta(vid, yt_api_key)
+    if api_key:
+        api_meta, _ = get_api_meta(vid, api_key)
         meta.update(api_meta)
 
     transcript, _ = fetch_transcript(vid)
 
-    comments, _ = get_comments(vid, yt_api_key) if yt_api_key else ([], None)
+    comments, _ = get_comments(vid, api_key) if api_key else ([], None)
     c_block = "\n".join(f"- {c}" for c in comments)
 
-    md = f"""# {meta.get('title', 'Video Report')}
+    md = f"""# {meta.get("title", "Video Report")}
 
-**Channel:** {meta.get('channel', 'Unknown')}
+**Channel:** {meta.get("channel", "Unknown")}
 **URL:** {url}
 
 ## Description
-{meta.get('description', 'N/A')}
+{meta.get("description", "N/A")}
 
 ## Transcript
 {transcript}
 
-## Comments{c_block if c_block else '_No comments fetched._'}
+## Comments{c_block if c_block else "_No comments fetched._"}
 """
     print(md)
 

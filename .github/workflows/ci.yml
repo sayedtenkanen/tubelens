@@ -24,7 +24,7 @@ jobs:
         run: uv sync --dev
 
       - name: Run tests
-        run: uv run pytest -q
+        run: uv run pytest -q --cov=. --cov-report=term-missing
 
       - name: Sanity-check server imports
         run: uv run python -c "import tubelens_server; print('ok')"
