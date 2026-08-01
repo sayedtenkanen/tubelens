@@ -13,7 +13,7 @@ Two parts do the work: `tubelens_server.py` (FastAPI backend) and `frontend/` (a
 
 ## One-time setup
 
-Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/) (or plain pip), plus Node.js 18+ for the frontend build.
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/) (or plain pip), plus [Node.js](https://nodejs.org/) 18+ for the frontend build.
 
 1. Install Python dependencies:
 
@@ -36,6 +36,10 @@ Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/) (or plain pip), plus 
    No Ollama, no GPU, or just don't want to run a local model? Skip this step — in the UI, set provider to **OpenAI** or **OpenRouter** (the API Key field enables automatically) and paste your own API key instead. Report generation then goes straight from your browser to that provider; everything else (fetching transcript/comments) still runs through the local server.
 
 4. Optional but recommended: get a free [YouTube Data API v3 key](https://console.cloud.google.com/apis/library/youtube.googleapis.com). It enables auto-fetched comments and descriptions — the comment analysis is the best part of the tool. Without it you still get title, channel, and transcript; comments can be pasted manually.
+
+   Two ways to provide it:
+   - **`.env` file (recommended — set once):** `cp .env.example .env`, then set `YT_API_KEY=your_key_here` in `.env`. The server loads this automatically on startup and pre-fills the YouTube Data API Key field in the UI, so you never have to paste it again. `/fetch` also falls back to this key server-side even if the UI field is empty.
+   - **UI field (per-session):** leave `.env` unset and paste the key directly into the YouTube Data API Key field each time you use the tool. It isn't saved anywhere.
 
 ## Using the tool
 
@@ -96,20 +100,6 @@ CI (GitHub Actions, `.github/workflows/ci.yml`) runs the suite on every push and
 - Transcript language: English preferred, falls back to the first available language.
 - Report quality depends on the model. 7–8B models follow the format but miss cross-references (e.g. linking a comment correction to the right video segment); 14B+ recommended.
 
-## Known issues (pre-existing, not yet fixed)
-
-Surfaced during the frontend/ refactor (Aug 2026), carried over unchanged from the old single-file HTML since fixing them wasn't in scope of that pass:
-
-- **`outputPanel.js` `switchTab()`** class strings (`TAB_ACTIVE`/`TAB_INACTIVE`) don't include `dark:` variants, so the tab buttons lose their dark-mode styling the first time you switch tabs (the initial markup has the right dark classes; the JS-driven class swap doesn't).
-
-~~Final Report text stayed black in dark mode~~ — fixed: the dark mode toggle now sets `.dark` on `<html>` instead of `<body>`. This was a regression introduced by the refactor, not a pre-existing issue — see `WORKPLAN.md` Task 13 for the root cause (a self-referential Tailwind `dark:` selector) and why the old single-file HTML didn't have it (a fallback rule that happened to compensate, removed during the refactor on a mistaken assumption).
-
-~~"Call AI API directly" felt mandatory even for the Local (Ollama) provider~~ — the checkbox itself has since been removed (see below); Provider, Model, and the live Ollama status check are always available. See `WORKPLAN.md` Tasks 14–15.
-
-~~"Call AI API directly" checkbox~~ — removed entirely. The API Key field now enables automatically based on the selected provider: disabled for Local (Ollama via server), enabled for OpenAI/OpenRouter. One less toggle to think about. See `WORKPLAN.md` Task 15.
-
 ## License
 
 [MIT](LICENSE)
-
-~~`apiConfigPanel.js` `loadConfig()` wrote the server's `yt_api_key` into the wrong field~~ — fixed: it now populates `ytApiKey`, and the field's help text notes it's auto-filled from `.env`'s `YT_API_KEY` (editable to override per-request).
