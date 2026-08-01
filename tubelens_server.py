@@ -69,6 +69,15 @@ app.add_middleware(
 YT_DATA_API = "https://www.googleapis.com/youtube/v3"
 
 
+def slugify(text: str) -> str:
+    """Create a filesystem-safe version of a string."""
+    # Remove non-alphanumeric characters (except spaces/hyphens/underscores)
+    text = re.sub(r'[^a-zA-Z0-9\s\-_]', '', text)
+    # Replace spaces with hyphens and collapse multiple hyphens
+    text = re.sub(r'\s+', '-', text).strip('_-')
+    return text if text else "untitled"
+
+
 def extract_video_id(url: str) -> str | None:
     """Extract the 11-character video ID from a YouTube URL (watch, youtu.be,
     embed, or shorts form) or return the input if it already is a bare ID.
@@ -316,6 +325,7 @@ def generate(payload: dict):
     when Ollama reports usage.
     """
     model = payload.get("model", "qwen2.5:14b")
+    video_title = payload.get("video_title", "")
     num_ctx = int(payload.get("num_ctx", 32768))
     approx_tokens = (
         len(payload.get("system", "")) + len(payload.get("prompt", ""))
@@ -398,8 +408,13 @@ def generate(payload: dict):
     vid = payload.get("video_id")
     if vid:
         SUMMARIES_DIR.mkdir(exist_ok=True)
+        
+        # Use slugified title if available, otherwise just use the ID
+        safe_title = slugify(video_title) if video_title else ""
+        filename_prefix = f"{safe_title}-{vid}" if safe_title else vid
+        
         saved_path = str(
-            SUMMARIES_DIR / f"{vid}-{datetime.datetime.now(datetime.UTC).date()}.md"
+            SUMMARIES_DIR / f"{filename_prefix}-{datetime.datetime.now(datetime.UTC).date()}.md"
         )
         pathlib.Path(saved_path).write_text(text, encoding="utf-8")
         log.info("generate: report saved to %s", saved_path)

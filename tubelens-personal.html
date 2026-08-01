@@ -668,7 +668,7 @@ const NUM_CTX_CAP = 65536;        // hard cap to protect VRAM
 const OUTPUT_HEADROOM = 8192;     // tokens reserved for the model's output
 const MAP_CHUNK_TOKENS = 20000;   // transcript tokens per map-stage call
 
-async function callGenerate(system, prompt, model, videoId = null) {
+async function callGenerate(system, prompt, model, videoId = null, videoTitle = null) {
   // Auto-size the context window: estimated prompt tokens + output
   // headroom, rounded up to 8k steps. Min 32k; capped to protect VRAM.
   const approx = Math.round((system.length + prompt.length) / 4);
@@ -677,7 +677,7 @@ async function callGenerate(system, prompt, model, videoId = null) {
   const res = await fetch('http://localhost:8000/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ system, prompt, model, num_ctx: numCtx, video_id: videoId })
+    body: JSON.stringify({ system, prompt, model, num_ctx: numCtx, video_id: videoId, video_title: videoTitle })
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error);
@@ -702,7 +702,7 @@ function chunkText(text, maxTokens) {
   return chunks;
 }
 
-async function generateChunked(model, videoId, parts, systemPrompt, setStatus) {
+async function generateChunked(model, videoId, videoTitle, parts, systemPrompt, setStatus) {
   // Map stage: dense notes per transcript part.
   const chunks = chunkText(parts.transcript, MAP_CHUNK_TOKENS);
   const notes = [];
@@ -738,7 +738,7 @@ ${parts.comments || '(No comments provided)'}
 ---
 
 ${REPORT_INSTRUCTIONS}`;
-  const data = await callGenerate(systemPrompt, reducePrompt, model, videoId);
+  const data = await callGenerate(systemPrompt, reducePrompt, model, videoId, videoTitle);
   data.parts_processed = chunks.length;
   return data;
 }
@@ -785,6 +785,7 @@ async function generateReport() {
 
     if (provider === 'local') {
       const videoId = extractVideoId(document.getElementById('videoUrl').value);
+      const videoTitle = document.getElementById('videoTitle').value.trim() || 'Untitled Video';
       const setStatus = (msg) => {
         document.getElementById('reportOutput').innerHTML =
           `<div class="flex items-center gap-3 text-gray-500"><div class="loader"></div><span>${msg}</span></div>`;
@@ -795,9 +796,9 @@ async function generateReport() {
       const singleShotLimit = (NUM_CTX_CAP - OUTPUT_HEADROOM - 1024);
       let data;
       if (approxTokens > singleShotLimit && payload.parts.transcript) {
-        data = await generateChunked(model, videoId, payload.parts, systemPrompt, setStatus);
+        data = await generateChunked(model, videoId, videoTitle, payload.parts, systemPrompt, setStatus);
       } else {
-        data = await callGenerate(systemPrompt, currentPrompt, model, videoId);
+        data = await callGenerate(systemPrompt, currentPrompt, model, videoId, videoTitle);
       }
       responseText = data.report;
       if (data.warning) {

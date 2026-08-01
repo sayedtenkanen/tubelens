@@ -283,10 +283,12 @@ class TestGenerateEndpoint:
                 "prompt": "prompt",
                 "model": "m",
                 "video_id": "test123",
+                "video_title": "Test Video Title!",
             },
         )
         data = response.json()
         assert data["saved_to"] is not None
+        assert "Test-Video-Title-test123" in data["saved_to"]
 
 
 # ── Cache tests ─────────────────────────────────────────────────────────────
