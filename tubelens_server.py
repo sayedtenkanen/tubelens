@@ -128,6 +128,14 @@ def fetch_transcript(video_id: str) -> tuple[str, str | None]:
             fetched = first.fetch()
             lines = [f"[{seconds_to_hms(s.start)}] {s.text}" for s in fetched.snippets]
             return "\n".join(lines), None
+        except (TranscriptsDisabled, NoTranscriptFound):
+            # These two carry a verbose multi-paragraph __str__ meant for
+            # library developers (repro steps, GitHub issue links, etc.) —
+            # not useful to show an end user. Give the plain reason instead.
+            return (
+                "",
+                "No transcript available (subtitles are disabled or none exist for this video).",
+            )
         except Exception as e:    # noqa: BLE001 # catch all exceptions
             return "", f"No transcript available: {e}"
     except Exception as e:    # noqa: BLE001 # catch all exceptions

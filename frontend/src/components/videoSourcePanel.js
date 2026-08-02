@@ -3,6 +3,20 @@ import { fetchNoEmbed, fetchFromLocalServer } from "../lib/fetchVideo.js";
 import { parseTimestamps } from "../lib/parsing.js";
 import { state } from "../state.js";
 
+// `min-h-4` (not `h-4`): fixed heights clip long messages instead of
+// growing to fit them. Fetch errors (e.g. youtube_transcript_api's
+// multi-sentence exception text) can run to several lines, and a fixed
+// height let that overflow the box and visually collide with the Title
+// field below it instead of wrapping and pushing it down.
+const STATUS_BASE = "text-[11px] mt-1 min-h-4 leading-relaxed";
+const STATUS_COLOR = {
+  neutral: "text-gray-400 dark:text-gray-500",
+  info: "text-indigo-600 dark:text-indigo-400",
+  warning: "text-amber-600 dark:text-amber-400",
+  success: "text-green-600 dark:text-green-400",
+  error: "text-red-500 dark:text-red-400",
+};
+
 /**
  * "Video Source" panel: URL input, fetch button, title, description +
  * chapter parsing.
@@ -28,7 +42,7 @@ export function mountVideoSourcePanel(container, deps) {
             <input type="text" id="videoUrl" placeholder="https://www.youtube.com/watch?v=..." class="flex-1 rounded-lg border-gray-300 dark:border-gray-600 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 border bg-white dark:bg-gray-700 dark:text-white">
             <button id="fetchBtn" disabled class="bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Fetch Info</button>
           </div>
-          <p id="fetchStatus" class="text-[11px] text-gray-400 dark:text-gray-500 mt-1 h-4"></p>
+          <p id="fetchStatus" class="${STATUS_BASE} ${STATUS_COLOR.neutral}"></p>
         </div>
 
         <div>
@@ -55,6 +69,11 @@ export function mountVideoSourcePanel(container, deps) {
   const descriptionTextarea = container.querySelector("#description");
   const chapterCount = container.querySelector("#chapterCount");
   const parseChaptersBtn = container.querySelector("#parseChaptersBtn");
+
+  function setFetchStatus(kind, text) {
+    fetchStatus.textContent = text;
+    fetchStatus.className = `${STATUS_BASE} ${STATUS_COLOR[kind]}`;
+  }
 
   function runParseTimestamps() {
     const chapters = parseTimestamps(descriptionTextarea.value);
@@ -86,15 +105,11 @@ export function mountVideoSourcePanel(container, deps) {
 
     if (isUsingLocalServer()) {
       if (!url) {
-        fetchStatus.textContent = "Please enter a YouTube URL.";
-        fetchStatus.className =
-          "text-[11px] text-amber-600 dark:text-amber-400 mt-1 h-4";
+        setFetchStatus("warning", "Please enter a YouTube URL.");
         return;
       }
       resetFieldsIfNewVideo(url);
-      fetchStatus.textContent = "Contacting localhost:8000...";
-      fetchStatus.className =
-        "text-[11px] text-indigo-600 dark:text-indigo-400 mt-1 h-4";
+      setFetchStatus("info", "Contacting localhost:8000...");
       try {
         const data = await fetchFromLocalServer(url, getYtApiKey());
         if (data.title) videoTitleInput.value = data.title;
@@ -105,13 +120,12 @@ export function mountVideoSourcePanel(container, deps) {
         }
         runParseTimestamps();
         if (data.errors && data.errors.length) {
-          fetchStatus.textContent = `⚠ ${data.errors.join("; ")}`;
-          fetchStatus.className =
-            "text-[11px] text-amber-600 dark:text-amber-400 mt-1 h-4";
+          setFetchStatus("warning", `⚠ ${data.errors.join("; ")}`);
         } else {
-          fetchStatus.textContent = `✓ Server OK — ${data.transcript ? "transcript" : "no transcript"}, ${data.comments?.length || 0} comments`;
-          fetchStatus.className =
-            "text-[11px] text-green-600 dark:text-green-400 mt-1 h-4";
+          setFetchStatus(
+            "success",
+            `✓ Server OK — ${data.transcript ? "transcript" : "no transcript"}, ${data.comments?.length || 0} comments`,
+          );
         }
       } catch (e) {
         let msg = `✗ Fetch failed: ${e.message || e}`;
@@ -128,25 +142,21 @@ export function mountVideoSourcePanel(container, deps) {
         } else if (e.message && e.message.startsWith("HTTP")) {
           msg = `✗ Server returned an error (${e.message}). Check the server logs.`;
         }
-        fetchStatus.textContent = msg;
-        fetchStatus.className = "text-[11px] text-red-500 dark:text-red-400 mt-1 h-4";
+        setFetchStatus("error", msg);
       }
     } else {
       if (!url) return;
       resetFieldsIfNewVideo(url);
-      fetchStatus.textContent = "Fetching metadata...";
-      fetchStatus.className = "text-[11px] text-gray-500 mt-1 h-4";
+      setFetchStatus("neutral", "Fetching metadata...");
       try {
         const { title, authorName } = await fetchNoEmbed(url);
         videoTitleInput.value = title;
         if (authorName) {
           descriptionTextarea.value = `Channel: ${authorName}\n\n`;
         }
-        fetchStatus.textContent = "✓ Fetched from noEmbed";
-        fetchStatus.className = "text-[11px] text-green-600 mt-1 h-4";
+        setFetchStatus("success", "✓ Fetched from noEmbed");
       } catch (e) {
-        fetchStatus.textContent = "✗ Could not fetch. Paste a valid YouTube URL.";
-        fetchStatus.className = "text-[11px] text-red-500 mt-1 h-4";
+        setFetchStatus("error", "✗ Could not fetch. Paste a valid YouTube URL.");
       }
     }
   }
@@ -157,11 +167,9 @@ export function mountVideoSourcePanel(container, deps) {
   onLocalServerToggle((checked) => {
     fetchBtn.disabled = !checked;
     if (checked) {
-      fetchStatus.textContent = "Ready to call localhost:8000";
-      fetchStatus.className = "text-[11px] text-indigo-600 mt-1 h-4";
+      setFetchStatus("info", "Ready to call localhost:8000");
     } else {
-      fetchStatus.textContent = "";
-      fetchStatus.className = "text-[11px] text-gray-400 mt-1 h-4";
+      setFetchStatus("neutral", "");
     }
   });
 
