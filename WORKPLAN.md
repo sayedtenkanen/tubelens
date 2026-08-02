@@ -394,3 +394,32 @@ Local), enables when switching to `openai`, disables again when switching
 back to `local`, and `#useApi` no longer exists in the DOM at all.
 Generating a report with provider `openai` and no key set produces the new
 named-provider error message without throwing.
+
+## Task 16 — Fix remaining dark-mode tab bug; drop "Known issues" from public docs (2026-08-01)
+
+Last open item from Task 11: `outputPanel.js`'s `TAB_ACTIVE`/`TAB_INACTIVE`
+class strings didn't carry `dark:` variants, so the tabs lost their
+dark-mode styling on first switch (initial markup had the right classes;
+the JS-driven swap didn't).
+
+**Do (done):** Added the matching `dark:` classes to `TAB_ACTIVE`
+(`dark:text-indigo-400 dark:border-indigo-500 dark:bg-gray-700/50`) and
+`TAB_INACTIVE` (`dark:text-gray-400 dark:hover:text-gray-200
+dark:hover:border-gray-600`), copied directly from the initial `#tab-prompt`/
+`#tab-report` markup so the JS swap now reproduces it exactly.
+
+Also removed the "Known issues" sections from `README.md` and
+`frontend/README.md` per the user: this repo is still private and everything
+listed there was already fixed, so carrying a running list of
+already-resolved bugs in the user-facing docs was pure noise once it's made
+public — that history belongs here in `WORKPLAN.md`, not in docs a visitor
+lands on. `frontend/README.md`'s section was folded into a shorter "Notes
+for future changes" covering the two points future edits should know about
+(the `<html>`-not-`<body>` dark-mode toggle, and the provider-driven API key
+field) without the changelog framing.
+
+**Accept:** Rebuilt (`npm run build`) clean. Extended the jsdom smoke-test
+harness: after clicking the (previously inactive) prompt tab, its className
+includes `dark:text-indigo-400` and `dark:bg-gray-700/50`; the now-inactive
+report tab's className includes `dark:text-gray-400` and
+`dark:hover:border-gray-600`. No known issues remain open.

@@ -77,29 +77,20 @@ same shape: the panel that owns a piece of state exposes a getter (or a
 it as a constructor-style `deps` argument. Avoid reaching for
 `document.getElementById` from outside the component that owns that element.
 
-## Known issues (carried over from before the refactor, not fixed here)
+## Notes for future changes
 
-- `outputPanel.js`'s `TAB_ACTIVE`/`TAB_INACTIVE` class strings don't carry
-  `dark:` variants, so switching tabs in dark mode loses the tab's dark
-  styling (the initial HTML has the right classes; the JS swap doesn't).
+- Dark mode is toggled on `document.documentElement` (`<html>`), not
+  `document.body`. Tailwind's `dark:*` utilities compile to
+  `.dark\:text-white:is(.dark *)` — the element must be a *descendant* of
+  `.dark`, and an element is never its own descendant. Toggling on `<body>`
+  would mean body's own `dark:bg-gray-900`/`dark:text-white` never applied
+  to itself, and anything that just *inherits* color from body (like raw
+  `<p>`/`<li>` tags in `.markdown-body`, which have no color rule of their
+  own) would silently stay on the light-mode color. If you add more
+  dark-mode-dependent inherited-color CSS, keep toggling against `<html>`,
+  not a component root.
+- The AI API Key field (`apiConfigPanel.js`) tracks the selected provider
+  directly (`providerSelect.value !== "local"`) rather than a separate
+  checkbox — Local never needs a key, cloud providers always do.
 
-`apiConfigPanel.js`'s `loadConfig()` used to write the server's YouTube Data
-API key into the AI-provider **API Key** field (`#apiKey`) instead of the
-**YouTube Data API Key** field (`#ytApiKey`) — fixed: it now populates
-`ytApiKeyInput`, and the field's help text notes it's auto-filled from
-`.env`'s `YT_API_KEY`.
-
-`header.js` used to toggle dark mode on `document.body`. Tailwind's
-`dark:*` utilities compile to `.dark\:text-white:is(.dark *)` — the element
-must be a *descendant* of `.dark`, and an element is never its own
-descendant, so body's own `dark:bg-gray-900`/`dark:text-white` classes never
-applied to itself. Everything nested inside body was fine (genuine
-descendant relationship); anything that just *inherits* color from body —
-like the raw `<p>`/`<li>` tags in `.markdown-body` (no color rule of their
-own) — silently stayed on body's light-mode color. Fixed: toggle
-`document.documentElement.classList` (`<html>`) instead, which is also
-Tailwind's own recommended pattern. If you add more dark-mode-dependent
-inherited-color CSS, toggle against `<html>`, not a component root.
-
-See the root `README.md` "Known issues" section and `WORKPLAN.md` for the
-fuller history.
+See `WORKPLAN.md` for the full history of how these were arrived at.

@@ -10,9 +10,9 @@ import {
 import { extractVideoId } from "../lib/youtubeId.js";
 
 const TAB_ACTIVE =
-  "flex-1 py-3 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50";
+  "flex-1 py-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-500 bg-indigo-50/50 dark:bg-gray-700/50";
 const TAB_INACTIVE =
-  "flex-1 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300 transition-colors";
+  "flex-1 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-colors";
 
 /**
  * Tab switcher (Prompt Preview / Final Report) plus the prompt-assembly and
@@ -30,10 +30,10 @@ export function mountOutputPanel(container, deps) {
   container.innerHTML = `
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div class="flex border-b border-gray-200 dark:border-gray-700">
-        <button id="tab-prompt" class="flex-1 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-b-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
+        <button id="tab-prompt" class="${TAB_INACTIVE}">
           Prompt Preview
         </button>
-        <button id="tab-report" class="flex-1 py-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-500 bg-indigo-50/50 dark:bg-gray-700/50">
+        <button id="tab-report" class="${TAB_ACTIVE}">
           Final Report
         </button>
       </div>
@@ -99,7 +99,7 @@ export function mountOutputPanel(container, deps) {
     if (state.currentTab !== "prompt") switchTab("prompt");
     emptyState.classList.add("hidden");
     reportOutput.classList.remove("hidden");
-    reportOutput.innerHTML = `<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm p-4 rounded-lg mb-4">Prompt assembled! Switch to the <strong>Prompt Preview</strong> tab to review or copy it.</div>`;
+    reportOutput.innerHTML = `<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm p-4 rounded-lg mb-4">Prompt assembled! Switch to the <strong>Prompt Preview</strong> tab to review or copy it, or click <strong>Generate Report</strong> to have it summarized now.</div>`;
     return payload;
   }
 

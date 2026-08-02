@@ -47,7 +47,7 @@ export function mountApiConfigPanel(container) {
           <span>Use local server for transcript & comments</span>
         </label>
         <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 ml-5">
-          Runs <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">python tubelens_server.py</code> on your machine to auto-pull data.
+          Requires <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">python tubelens_server.py</code> already running on your machine (see instructions below) — this just tells the UI to use it for auto-pulling data.
         </p>
         <div id="localServerConfig" class="mt-3">
           <label class="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">YouTube Data API Key (optional)</label>
